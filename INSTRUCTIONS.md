@@ -4,6 +4,10 @@ Since Google Colab offers limited GPU time (especially on free tiers), it is hig
 
 To make this workflow seamless, we use **Google Drive** to store the project files persistently, and **Git** to track changes and push to GitHub.
 
+## Development
+
+If you are developing the code, you can do so locally on your machine. You can use any IDE or text editor of your choice. Once you have made changes, you can push them to GitHub. The Colab notebooks will pull the latest changes from GitHub when you run them. In this phase you do not need to connect to Colab otherwise you will be consuming your compute units unnecessarily. Connect to Colab only when you want to compile and run the code, then disconnect immediately after to conserve your compute units.
+
 ## Two Ways to Run the Notebooks
 
 This repository includes notebook files that you can use to run the code. There are two primary ways to execute them:

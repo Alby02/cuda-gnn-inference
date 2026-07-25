@@ -13,28 +13,41 @@ This project implements a custom inference engine for Graph Neural Networks (GNN
 
 | Feature / Task | Student ID |
 | :--- | :--- |
-| **1. Data Management & Pre-processing** | |
-| F1.1: Custom Graph Format Converter (Python) | |
-| F1.2: Synthetic Graph Generator | |
-| F1.3: C++ Graph Loader (CSR/CSC) | |
-| F1.4: C++ Feature/Weight Loader | |
-| **2. Core Inference Engine (Sequential CPU Baseline)** | |
-| F2.1: Sequential GCN Layer | |
-| F2.2: Sequential GraphSAGE Layer | |
-| F2.3: Multi-layer Pipeline | |
-| **3. Parallel Execution (CPU Multi-core)** | |
-| F3.1: OpenMP Vertex-Centric Execution | |
-| F3.2: OpenMP Edge-Centric Execution | |
-| **4. GPU Acceleration (CUDA - Linux Only)** | |
-| F4.1: CUDA Memory Manager | |
-| F4.2: Thread-per-Node CUDA Kernel | |
-| F4.3: Thread-per-Edge CUDA Kernel | |
-| F4.4: Shared Memory Optimization | |
-| F4.5: Coalesced Memory Access Optimization | |
-| **5. Verification, Benchmarking & Optional** | |
-| F5.1: Correctness Verifier | |
-| F5.2: Performance Profiler & Automated Benchmarking | |
-| F6.1: Python Bindings (pybind11) - Optional | |
+| **1. Architecture & Pipeline Orchestration** | |
+| F1.1: Core Interfaces (Graph, Engine) | |
+| F1.2: Component DataFactory | |
+| F1.3: Multi-layer Pipeline Orchestrator | |
+| | |
+| **2. Data Management & Graph Data Structure** | |
+| F2.1: Graph Implementations | |
+| F2.2: Custom Graph Format Converter (Python) | |
+| F2.3: Synthetic Graph Generator (Python/C++) | |
+| F2.4: Graph Loader (C++) | |
+| F2.5: Feature & Weight Loader (C++) | |
+| | |
+| **3. Core Inference Engine: Sequential CPU (Baseline)** | |
+| F3.1: Sequential GCN Layer | |
+| F3.2: Sequential GraphSAGE Layer | |
+| | |
+| **4. Core Inference Engine: Parallel CPU (Multi-core)** | |
+| F4.1: OpenMP Vertex-Centric Execution | |
+| F4.2: OpenMP Edge-Centric Execution | |
+| | |
+| **5. Core Inference Engine: GPU Acceleration (CUDA - Linux Only)** | |
+| F5.1: CUDA Memory Manager | |
+| F5.2: Thread-per-Node CUDA Kernel | |
+| F5.3: Thread-per-Edge CUDA Kernel | |
+| F5.4: Shared Memory Optimization | |
+| F5.5: Coalesced Memory Access Optimization | |
+| | |
+| **6. Verification and Benchmarking** | |
+| F6.1: Correctness Verifier | |
+| F6.2: Performance Profiler | |
+| F6.3: Automated Benchmarking Suite | |
+| | |
+| **7. Optional Extensions** | |
+| F7.1: Python Bindings (`pybind11`) | |
+| F7.2: Python Test Suite | |
 
 ## Build Instructions
 See `doc/environment.md` for details on setting up the cross-platform environment. We use Meson to build the project.

@@ -7,16 +7,19 @@ The objective of this project is to develop a custom inference engine for Graph 
 ### 2. Functional Requirements
 *   **Graph Support:** Must support single, large, static graphs, both directed and undirected.
 *   **Feature Support:** Must support node features (attributes) and, optionally, edge features (required for specific architectures like attention mechanisms or certain GraphSAGE variants).
-*   **Supported Architectures:** Must implement the forward pass (inference) for at least one or two basic GNN architectures (e.g., **GCN** and/or **GraphSAGE**).
+*   **Supported Architectures:** Must implement the forward pass (inference) for at least two basic GNN architectures (e.g., **GCN** and/or **GraphSAGE**).
 *   **Inference Mode:** Must focus on full-batch inference on a single large graph, rather than mini-batching across many small graphs.
 *   **Weights:** Must assume weights and all layer parameters are pre-loaded and fixed. Training logic is not required.
 *   **Data Loading:** Must be capable of loading graphs represented in CSR (Compressed Sparse Row) and/or CSC (Compressed Sparse Column) formats, along with dense feature matrices.
+*   **Pipeline Execution:** Must provide a multi-layer execution pipeline that takes input features and propagates them through $L$ layers seamlessly.
 
 ### 3. Non-Functional Requirements
 *   **Programming Languages:** Must be implemented entirely in **C++** and **CUDA** (for GPU extensions).
+*   **Configurability via Dependency Injection:** The system must be highly configurable. Specifically, the engine implementation (Sequential, Parallel CPU, GPU) must be interchangeable without modifying the core pipeline logic, achieved through Dependency Injection or equivalent design patterns.
 *   **Framework Restrictions:** The use of high-level Deep Learning frameworks (e.g., PyTorch, DGL, TensorFlow) is **strictly prohibited** for the core inference implementation. Only custom kernels and implementations are valid.
-*   **Environment:** The single-core and multi-threaded CPU code must compile and run on both Unix-like systems and Windows systems. The CUDA GPU version is only required to work on Linux (specifically targeting Google Colab environments).
+*   **Environment:** The single-core and multi-threaded CPU code must compile and run on both Unix-like systems and Windows systems. The CUDA GPU version is only required to work on Linux.
 *   **Memory Efficiency:** Must utilize efficient sparse data structures (like CSR/CSC) for the graph topology to minimize memory footprint.
+*   **Extensibility:** The codebase should be structured to easily accommodate new GNN layer types, graph generators, or parallelization strategies in the future.
 
 ### 4. Implementation Variants Required
 The project must deliver three distinct implementations for comparison:

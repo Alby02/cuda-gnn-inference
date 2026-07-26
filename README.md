@@ -8,6 +8,7 @@ This project implements a custom inference engine for Graph Neural Networks (GNN
 - [Requirements](doc/requirements.md)
 - [Features List](doc/features.md)
 - [Environment Instructions](doc/environment.md)
+- [GNN & Sparse Graph Representations Knowledge Base](doc/knowledge.md)
 
 ## Workload Division
 

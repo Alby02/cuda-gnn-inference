@@ -17,7 +17,7 @@ Since MSVC is not supported for this project, you must use MSYS2 on Windows, you
    ```
 4. Install the required toolchain and dependencies:
    ```bash
-   pacman -S mingw-w64-ucrt-x86_64-toolchain mingw-w64-ucrt-x86_64-llvm-openmp
+   pacman -S mingw-w64-ucrt-x86_64-toolchain
    ```
 5. Set up and build the project:
    ```bash

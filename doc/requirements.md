@@ -7,7 +7,7 @@ The objective of this project is to develop a custom inference engine for Graph 
 ### 2. Functional Requirements
 *   **Graph Support:** Must support single, large, static graphs, both directed and undirected.
 *   **Feature Support:** Must support node features (attributes) and, optionally, edge features (required for specific architectures like attention mechanisms or certain GraphSAGE variants).
-*   **Supported Architectures:** Must implement the forward pass (inference) for at least two basic GNN architectures (e.g., **GCN** and/or **GraphSAGE**).
+*   **Supported Architectures:** Must implement the forward pass (inference) for at least two basic GNN architectures (e.g., **GCN** and **GraphSAGE**).
 *   **Inference Mode:** Must focus on full-batch inference on a single large graph, rather than mini-batching across many small graphs.
 *   **Weights:** Must assume weights and all layer parameters are pre-loaded and fixed. Training logic is not required.
 *   **Data Loading:** Must be capable of loading graphs represented in CSR (Compressed Sparse Row) and/or CSC (Compressed Sparse Column) formats, along with dense feature matrices.

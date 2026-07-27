@@ -3,17 +3,15 @@
 
 This document breaks down the requirements into actionable, implementable features for the GNN inference engine.
 
-### 1. Architecture & Pipeline Orchestration
-*   **F1.1: Core Interfaces:** Define the foundational abstractions for the system, including the `Graph` interface (to be implemented by `DirectedGraph` and `UndirectedGraph` specializations) and the `Engine` interface (to abstract Sequential, Parallel CPU, and GPU executions).
-*   **F1.2: Component DataFactory:** Implement a Factory design pattern to abstract the instantiation of Graph objects, Data Loaders, and Inference Engines, enabling clean dependency injection across the project.
-*   **F1.3: Multi-layer Pipeline Orchestrator:** The overarching logic to string together $L$ layers, passing the output node embeddings of layer $l$ as the input features for layer $l+1$. This component must rely purely on the interfaces defined in F1.1.
+### 1. Core Architecture & Pipeline Orchestration
+*   **F1.1: Core Graph Representation & Factory:** Consolidates the foundational C++ `Graph` interface (for `DirectedGraph` and `UndirectedGraph` supporting CSR and CSC layouts), concrete graph data structures.
+*   **F1.2: Engine Interface, DataFactory & Pipeline Orchestrator:** Defines the `Engine` interface (abstracting Sequential, Parallel CPU, and GPU executions), the Engine DataFactory for engine instantiation, and the multi-layer pipeline orchestrator that strings together $L$ layers ($h^{(l+1)} = \text{Layer}(h^{(l)})$) using dependency injection.
 
-### 2. Data Management & Graph Data Structure
-*   **F2.1: Graph Implementations:** Highly efficient in-memory C++ data structures (`DirectedGraph` and `UndirectedGraph`) implementing the `Graph` interface. Must support CSR and CSC layouts.
-*   **F2.2: Custom Graph Format Converter (Python):** Script to download and parse OGB and Planetoid datasets, converting them from their native formats into a custom, easy-to-read text or binary CSR/CSC format.
-*   **F2.3: Synthetic Graph Generator (Python/C++):** Utility to generate Erdos-Rényi, Barabási-Albert, and small-world graphs.
-*   **F2.4: Graph Loader (C++):** A module that parses the custom CSR/CSC files into the in-memory graph data structure via the DataFactory.
-*   **F2.5: Feature & Weight Loaders (C++):** A module that loads dense matrices (load matrix 1: node features and edge features, load matrix 2... : pre-trained layer weights needed to be repeated for each layer).
+### 2. Data Management & Utilities
+*   **F2.1: Custom Graph Format Converter (Python):** Script to download and parse OGB and Planetoid datasets, converting them from native formats into a custom CSR/CSC binary or text format.
+*   **F2.2: Synthetic Graph Generator (Python/C++):** Utility to generate Erdos-Rényi, Barabási-Albert, and small-world graphs.
+*   **F2.3: Graph Loader (C++):** A C++ module that parses the custom CSR/CSC files into in-memory graph structures via the Graph DataFactory.
+*   **F2.4: Feature & Weight Loaders (C++):** A C++ module that loads dense feature matrices (input node features $h^{(0)}$ and optional edge features) as well as pre-trained layer weight matrices ($W^{(l)}$ for each layer $l \in [0, L-1]$).
 
 ### 3. Core Inference Engine: Sequential CPU (Baseline)
 *   **F3.1: Sequential GCN Layer:** Implementation of the GCN aggregation and update steps operating strictly on the CPU using standard C++ loops over the graph structure.

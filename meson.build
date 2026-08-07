@@ -1,11 +1,10 @@
 project('cuda-gnn-inference', 'cpp',
   version : '0.1',
-  default_options : ['warning_level=3', 'cpp_std=c++20'])
+  default_options : ['warning_level=3', 'cpp_std=c++20', 'cpp_eh=default'])
 
 inc_dir = include_directories('src/common')
 
-# 1. Common Files
-common_src = files('src/common/utils.cpp')
+common_src = []
 
 # 2. Single-threaded (Sequential) CPU part
 seq_src = files('src/sequential/main_seq.cpp')

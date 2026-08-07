@@ -1,13 +1,12 @@
-#include "utils.hpp"
-#include <omp.h>
 #include <iostream>
+#include <omp.h>
 
 int main() {
-    print_hello("Multi-threaded CPU (OpenMP)");
-    
-    #pragma omp parallel
+    std::cout << "Multi-threaded CPU (OpenMP)\n";
+
+#pragma omp parallel
     {
-        #pragma omp single
+#pragma omp single
         std::cout << "Number of OpenMP threads: " << omp_get_num_threads() << std::endl;
     }
     return 0;

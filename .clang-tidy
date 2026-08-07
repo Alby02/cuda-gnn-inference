@@ -1,0 +1,31 @@
+Checks: >
+  -*,
+  cppcoreguidelines-*,
+  readability-identifier-naming
+  -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access
+
+CheckOptions:
+  # Classes & Structs -> CamelCase
+  readability-identifier-naming.ClassCase: 'CamelCase'
+  readability-identifier-naming.StructCase: 'CamelCase'
+
+  # Functions & Methods -> camelBack (e.g., calculateValue)
+  readability-identifier-naming.FunctionCase: 'camelBack'
+  readability-identifier-naming.MethodCase: 'camelBack'
+
+  # Private Members -> camelBack with trailing _ (e.g., initialValue_)
+  readability-identifier-naming.PrivateMemberCase: 'camelBack'
+  readability-identifier-naming.PrivateMemberSuffix: '_'
+
+  # Protected Members -> camelBack with trailing _
+  readability-identifier-naming.ProtectedMemberCase: 'camelBack'
+  readability-identifier-naming.ProtectedMemberSuffix: '_'
+
+  # Public Members -> camelBack (no trailing _)
+  readability-identifier-naming.PublicMemberCase: 'camelBack'
+
+  # Local Variables -> camelBack
+  readability-identifier-naming.VariableCase: 'camelBack'
+
+  # Constants -> UPPER_CASE (e.g., MAX_BUFFER_SIZE)
+  readability-identifier-naming.ConstantCase: 'UPPER_CASE'

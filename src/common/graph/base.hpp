@@ -1,26 +1,25 @@
 #pragma once
 
-#include "types.hpp"
 #include <concepts>
+#include <cstdint>
+#include <span>
 
 namespace graph {
 
-class IGraph {
-public:
-    virtual ~IGraph() = default;
-
-    [[nodiscard]] virtual std::size_t num_nodes() const noexcept = 0;
-    [[nodiscard]] virtual std::size_t num_edges() const noexcept = 0;
-    [[nodiscard]] virtual bool is_directed() const noexcept = 0;
-    [[nodiscard]] virtual bool has_edge_weights() const noexcept = 0;
+template <typename G>
+concept Base = requires(const G& g) {
+    { g.getNumNodes() } -> std::same_as<std::uint64_t>;
+    { g.getNumEdges() } -> std::same_as<std::uint64_t>;
+    { g.isDirected() } -> std::same_as<bool>;
+    { g.hasEdgeWeights() } -> std::same_as<bool>;
+    { g.hasEdgeFeatures() } -> std::same_as<bool>;
 };
 
-template<typename G>
-concept Graph = requires(const G& g) {
-    { g.num_nodes() } -> std::same_as<std::size_t>;
-    { g.num_edges() } -> std::same_as<std::size_t>;
-    { g.is_directed() } -> std::same_as<bool>;
-    { g.has_edge_weights() } -> std::same_as<bool>;
+template <typename G>
+concept InNeighbor = Base<G> && requires(const G& g, std::uint64_t node) {
+    { g.getInNeighbors(node) } -> std::same_as<std::span<const std::uint64_t>>;
+    { g.getInWeights(node) } -> std::same_as<std::span<const float>>;
+    { g.inDegree(node) } -> std::same_as<std::uint64_t>;
 };
 
 } // namespace graph

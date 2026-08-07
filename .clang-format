@@ -1,0 +1,19 @@
+BasedOnStyle: LLVM
+Language: Cpp
+
+# Indentation
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+# Formatting behavior
+ColumnLimit: 100
+BreakBeforeBraces: Attach
+AccessModifierOffset: -4
+
+# Alignment & Includes
+PointerAlignment: Left
+SortIncludes: CaseSensitive
+
+# C++ Standard
+Standard: c++20

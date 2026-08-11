@@ -67,7 +67,7 @@ public:
         return weights_.empty() ? 1.0f : weights_[edgeId];
     }
 
-    // Direct pointers for CUDA and OpenMP parameter passing
+    // Direct pointers for CUDA parameter passing
     [[nodiscard]] const std::uint64_t* colPtrData() const noexcept { return colPtr_.data(); }
     [[nodiscard]] const std::uint64_t* rowIndData() const noexcept { return rowInd_.data(); }
     [[nodiscard]] const float* weightsData() const noexcept {
@@ -80,14 +80,12 @@ public:
         return edgeFeatures_.has_value() ? edgeFeatures_->cols() : 0;
     }
 
-    // GCN Degree Normalization factors
-    [[nodiscard]] std::vector<float> computeInvSqrtDegrees(bool includeSelfLoop = true) const {
-        std::vector<float> invSqrtDeg(numNodes_);
-        for (std::uint64_t i = 0; i < numNodes_; ++i) {
-            float deg = static_cast<float>(inDegree(i)) + (includeSelfLoop ? 1.0f : 0.0f);
-            invSqrtDeg[i] = (deg > 0.0f) ? (1.0f / std::sqrt(deg)) : 0.0f;
-        }
-        return invSqrtDeg;
+    // GCN Degree Normalization factor for a single node
+    template <bool IncludeSelfLoop = false>
+    [[nodiscard]] float invSqrtDegree(std::uint64_t node) const {
+        constexpr std::uint64_t selfLoopAdd = IncludeSelfLoop ? 1 : 0;
+        const float deg = static_cast<float>(inDegree(node) + selfLoopAdd);
+        return (deg > 0.0f) ? (1.0f / std::sqrt(deg)) : 0.0f;
     }
 
 private:

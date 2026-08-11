@@ -16,7 +16,7 @@ This project implements a custom inference engine for Graph Neural Networks (GNN
 | :--- | :--- |
 | **1. Core Architecture & Pipeline Orchestration** | |
 | F1.1: Core Graph Representation | s360540 |
-| F1.2: Engine Interface & Pipeline Orchestrator | |
+| F1.2: Engine Interface & GNN Model's Layers definition | s360540 |
 | | |
 | **2. Data Management & Utilities** | |
 | F2.1: Custom Graph Format Converter (Python) | |
@@ -25,8 +25,7 @@ This project implements a custom inference engine for Graph Neural Networks (GNN
 | F2.4: Feature & Weight Loaders (C++) | |
 | | |
 | **3. Core Inference Engine: Sequential CPU (Baseline)** | |
-| F3.1: Sequential GCN Layer | |
-| F3.2: Sequential GraphSAGE Layer | |
+| F3.1: Sequential Layer execution | |
 | | |
 | **4. Core Inference Engine: Parallel CPU (Multi-core)** | |
 | F4.1: OpenMP Vertex-Centric Execution | |

@@ -20,6 +20,7 @@ concept InNeighbor = Base<G> && requires(const G& g, std::uint64_t node) {
     { g.getInNeighbors(node) } -> std::same_as<std::span<const std::uint64_t>>;
     { g.getInWeights(node) } -> std::same_as<std::span<const float>>;
     { g.inDegree(node) } -> std::same_as<std::uint64_t>;
+    { g.template invSqrtDegree<false>(node) } -> std::same_as<float>;
 };
 
 } // namespace graph

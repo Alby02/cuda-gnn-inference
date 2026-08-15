@@ -19,21 +19,21 @@ This project implements a custom inference engine for Graph Neural Networks (GNN
 | F1.2: Engine Interface & GNN Model's Layers definition | s360540 |
 | | |
 | **2. Data Management & Utilities** | |
-| F2.1: Custom Graph Format Converter (Python) | |
-| F2.2: Synthetic Graph Generator (Python/C++) | |
-| F2.3: Graph Loader (C++) | |
+| F2.1: Custom Graph Format Converter (Python) | s362415 |
+| F2.2: Synthetic Graph Generator (Python/C++) | s362415 |
+| F2.3: Graph Loader (C++) | s362415 |
 | F2.4: Feature & Weight Loaders (C++) | |
 | | |
 | **3. Core Inference Engine: Sequential CPU (Baseline)** | |
 | F3.1: Sequential Layer execution | |
 | | |
 | **4. Core Inference Engine: Parallel CPU (Multi-core)** | |
-| F4.1: OpenMP Vertex-Centric Execution | |
+| F4.1: OpenMP Vertex-Centric Execution | s362415 |
 | F4.2: OpenMP Edge-Centric Execution | |
 | | |
 | **5. Core Inference Engine: GPU Acceleration (CUDA - Linux Only)** | |
 | F5.1: CUDA Memory Manager | |
-| F5.2: Thread-per-Node CUDA Kernel | |
+| F5.2: Thread-per-Node CUDA Kernel | s362415 |
 | F5.3: Thread-per-Edge CUDA Kernel | |
 | F5.4: Shared Memory Optimization | |
 | F5.5: Coalesced Memory Access Optimization | |

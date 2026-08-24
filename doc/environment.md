@@ -62,8 +62,39 @@ wsl --install -d Ubuntu
 ```
 
 ---
+## 4. Python Dependencies for Scripts Folder (F2.1 / F2.2)
 
-## 4. Google Colab Workflow Instructions (raccomandade for GPU Only)
+The dataset converter (`scripts/converter.py`) and the synthetic graph generator
+(`scripts/synthetic_generator.py`) require a small set of Python packages, listed in
+`python_libraries.txt` at the repository root.
+
+Install them with:
+```bash
+pip install -r python_libraries.txt
+```
+
+### Note on NetworKit
+The synthetic generator uses [NetworKit](https://networkit.github.io/) to scale graph
+generation up to millions of nodes. Unlike most packages in `python_libraries.txt`,
+**NetworKit is not a pure-Python package**: `pip install` compiles native C++ extensions
+locally, using OpenMP for parallel generation. This means:
+
+- **Linux native / WSL / Google Colab**: works out of the box, since a C++ compiler
+  (`g++`) is already required and installed for the CUDA/OpenMP parts of this project.
+  The first `pip install networkit` will take noticeably longer than a typical
+  pure-Python package (compilation time), but requires no extra setup.
+- **Windows (MSYS2/UCRT64)**: make sure you run `pip install -r python_libraries.txt` from
+  inside the **MSYS2 UCRT64** terminal described in Section 1, after installing the
+  `mingw-w64-ucrt-x86_64-toolchain` package, so that a compatible C++ compiler and
+  OpenMP are available on the `PATH`. Installing from a plain Windows PowerShell/CMD
+  without that toolchain will fail.
+
+If `pip install networkit` fails, check that a C++ compiler is discoverable on your
+`PATH` (`g++ --version` or `clang++ --version`).
+
+---
+
+## 5. Google Colab Workflow Instructions (raccomandade for GPU Only)
 
 Since Google Colab offers limited GPU time (especially on free tiers), it is highly recommended to use a "connect and disconnect" workflow. This means you will only connect to a GPU instance when you actually need to compile and run the CUDA code, and disconnect immediately after to conserve your compute units.
 

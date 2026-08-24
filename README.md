@@ -95,9 +95,9 @@ incomplete; `Assigned` means implementation has not started.
 | :--- | :--- | :---: | :---: |
 | T-CON-01 | Directed/undirected canonical CSC graph representation and orientation enum | `s360540` | Completed — pending merge |
 | T-CON-03–T-CON-04 | GCN/GraphSAGE layer descriptors and generic model definition | `s360540` | Completed |
-| T-IO-02 | Canonical graph loader and orientation validation | `s362415` | Completed — pending merge |
-| T-DATA-01 | Reproducible synthetic graph generator | `s362415` | Completed — pending merge |
-| T-DATA-03 | Public dataset preparation | `s362415` | Completed — pending merge |
+| T-IO-02 | Canonical graph loader and orientation validation | `s362415` | Completed |
+| T-DATA-01 | Reproducible synthetic graph generator | `s362415` | Completed |
+| T-DATA-03 | Public dataset preparation | `s362415` | Completed |
 | T-CON-02, T-CON-06–T-CON-08 | Matrix/views, executor contracts, workspaces, and dispatch | `s360540` | Scheduled |
 | T-CON-05 (GCN) | GCN degree and self-message semantic preparation | `s362415` | Completed — pending merge |
 | T-CON-05 (GraphSAGE) | GraphSAGE neighbor-total semantic preparation | `s296248` | Assigned |

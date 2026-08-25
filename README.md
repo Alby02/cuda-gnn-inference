@@ -29,11 +29,11 @@ This project implements a custom inference engine for Graph Neural Networks (GNN
 | | |
 | **4. Core Inference Engine: Parallel CPU (Multi-core)** | |
 | F4.1: OpenMP Vertex-Centric Execution | s362415 |
-| F4.2: OpenMP Edge-Centric Execution | |
+| F4.2: OpenMP Edge-Centric Execution | s362415 |
 | | |
 | **5. Core Inference Engine: GPU Acceleration (CUDA - Linux Only)** | |
 | F5.1: CUDA Memory Manager | |
-| F5.2: Thread-per-Node CUDA Kernel | s362415 |
+| F5.2: Thread-per-Node CUDA Kernel | |
 | F5.3: Thread-per-Edge CUDA Kernel | |
 | F5.4: Shared Memory Optimization | |
 | F5.5: Coalesced Memory Access Optimization | |

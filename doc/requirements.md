@@ -1,45 +1,295 @@
-# Requirements Document
-## Project: Graph Neural Network Inference on GPUs
+# Software Requirements Specification
+## Graph Neural Network Inference on Multi-Core CPUs and GPUs
 
-### 1. Introduction
-The objective of this project is to develop a custom inference engine for Graph Neural Networks (GNNs) targeting both multi-core CPUs and GPUs. The engine must evaluate how different parallelization strategies (vertex parallel, edge parallel, message-passing batching, sparse vs. dense representations) affect performance and scalability on large graphs.
+## 1. Introduction
 
-### 2. Functional Requirements
-*   **Graph Support:** Must support single, large, static graphs, both directed and undirected.
-*   **Feature Support:** Must support node features (attributes) and, optionally, edge features (required for specific architectures like attention mechanisms or certain GraphSAGE variants).
-*   **Supported Architectures:** Must implement the forward pass (inference) for at least two basic GNN architectures (e.g., **GCN** and **GraphSAGE**).
-*   **Inference Mode:** Must focus on full-batch inference on a single large graph, rather than mini-batching across many small graphs.
-*   **Weights:** Must assume weights and all layer parameters are pre-loaded and fixed. Training logic is not required.
-*   **Data Loading:** Must be capable of loading graphs represented in CSR (Compressed Sparse Row) and/or CSC (Compressed Sparse Column) formats, along with dense feature matrices.
-*   **Pipeline Execution:** Must provide a multi-layer execution pipeline that takes input features and propagates them through $L$ layers seamlessly.
+### 1.1 Purpose
 
-### 3. Non-Functional Requirements
-*   **Programming Languages:** Must be implemented entirely in **C++** and **CUDA** (for GPU extensions).
-*   **Configurability via Dependency Injection:** The system must be highly configurable. Specifically, the engine implementation (Sequential, Parallel CPU, GPU) must be interchangeable without modifying the core pipeline logic, achieved through Dependency Injection or equivalent design patterns.
-*   **Framework Restrictions:** The use of high-level Deep Learning frameworks (e.g., PyTorch, DGL, TensorFlow) is **strictly prohibited** for the core inference implementation. Only custom kernels and implementations are valid.
-*   **Environment:** The single-core and multi-threaded CPU code must compile and run on both Unix-like systems and Windows systems. The CUDA GPU version is only required to work on Linux.
-*   **Memory Efficiency:** Must utilize efficient sparse data structures (like CSR/CSC) for the graph topology to minimize memory footprint.
-*   **Extensibility:** The codebase should be structured to easily accommodate new GNN layer types, graph generators, or parallelization strategies in the future.
+This document defines the functional, experimental, and non-functional requirements for the Graph Neural Network (GNN) inference project described in [project.md](project.md) and its supplementary assignment notes. It converts the assignment into requirements that can be implemented and verified.
 
-### 4. Implementation Variants Required
-The project must deliver three distinct implementations for comparison:
-1.  **Sequential CPU Baseline:** A C/C++ implementation operating sequentially over efficient graph formats.
-2.  **Parallel CPU Implementation:** A multi-core implementation utilizing explicit threads, tasks, or OpenMP, exploiting parallelism over nodes, edges, or layers.
-3.  **Parallel GPU Implementation (CUDA):** One or more CUDA versions exploring:
-    *   Different thread mappings (e.g., thread-per-node, thread-per-edge, thread-per-feature).
-    *   Structural optimizations (e.g., utilization of shared memory, coalesced memory access on CSR structures).
+The source assignment material remains authoritative. If this document conflicts with that material, the assignment and supplementary notes take precedence.
 
-### 5. Experimental and Performance Requirements
-The engine must include benchmarking capabilities to evaluate and compare performance across the different implementations.
-*   **Metrics:** Must measure Throughput (nodes/s or edges/s), Memory Footprint, and Scalability.
-*   **Stability:** Each configuration (graph size, feature size, depth, implementation variant) must be run multiple times to report stable timings.
-*   **Comparisons:** Must evaluate and compare:
-    *   Sequential vs. Multi-core vs. GPU implementations.
-    *   Vertex-centric vs. Edge-centric strategies.
-    *   Impact of memory optimizations (with/without shared memory, feature compression).
-*   **Datasets:** Must benchmark against:
-    *   Publicly available datasets (e.g., Open Graph Benchmark (OGB), Planetoid).
-    *   Randomly generated synthetic graphs (e.g., Scale-free/Barabási-Albert, Erdos-Rényi, small-world).
+### 1.2 Project objective
 
-### 6. Optional Extensions
-*   **Python Bindings:** Provide a Python interface (e.g., using `pybind11`) to allow seamless invocation of the C++/CUDA inference engine from Python, enabling easier integration with existing data loading pipelines and high-level evaluation scripts.
+The project shall implement an inference-only GNN engine for a single large, static graph, which may be directed or undirected. It shall implement at least two distinct GNN architectures and execute equivalent workloads using sequential CPU, multi-core CPU, and CUDA GPU implementations.
+
+The project shall use these implementations to evaluate how graph size, feature dimension, model depth, work partitioning, and memory-access strategy affect execution time, throughput, memory consumption, and scalability.
+
+The primary outcome is a reproducible experimental comparison. The project is not intended to be a training framework or a general-purpose deep-learning library.
+
+The selected GNN architectures, their binding equations, and the selected multi-core CPU and CUDA work mappings are defined in [semantics.md](semantics.md). This requirements document deliberately specifies minimum capabilities and counts without selecting concrete model families or parallelization strategies. Component responsibilities and extension boundaries are defined in [architecture.md](architecture.md).
+
+### 1.3 Requirement language
+
+- **Shall** identifies a mandatory and verifiable requirement.
+- **Should** identifies a recommendation that may be omitted with justification.
+- **May** identifies permitted or optional behavior.
+- Requirements prefixed with **OPT** are explicitly optional and do not determine completion of the required project scope.
+
+## 2. Scope
+
+### 2.1 In scope
+
+- Full-batch inference on one static graph at a time.
+- Fixed, preloaded model parameters.
+- At least two selected GNN architectures, each containing one or more message-passing layers.
+- Sparse graph topology and dense node features.
+- Sequential CPU, multi-core CPU, and CUDA GPU execution.
+- Correctness verification and comparative benchmarking.
+- Synthetic and public graph datasets.
+### 2.2 Out of scope
+
+- Model training and weight updates.
+- Automatic differentiation and backpropagation.
+- Dynamic graph updates during an inference run.
+- Mini-batch training or neighbor sampling.
+- Distributed or multi-GPU execution.
+
+Features listed in Section 11 are also outside the required scope unless explicitly promoted into the core project later.
+
+## 3. System inputs and outputs
+
+### 3.1 Inputs
+
+The system shall accept:
+
+- a directed or undirected graph topology, according to the representation selected by the implementation;
+- a dense node-feature matrix;
+- a model configuration containing one or more layers;
+- fixed layer weights and other required model parameters; and
+- execution and benchmark configuration parameters.
+
+### 3.2 Outputs
+
+The system shall produce:
+
+- the final node-representation matrix generated by inference;
+- correctness-verification results when verification is requested; and
+- benchmark measurements in human-readable and machine-readable forms.
+
+## 4. Functional requirements
+
+### 4.1 Graph and data representation
+
+| ID | Requirement | Verification |
+| --- | --- | --- |
+| FR-GRAPH-01 | The engine shall support at least one graph orientation: directed or undirected. Supporting both orientations is optional. | Load and execute inference on a graph of every claimed supported orientation. |
+| FR-GRAPH-02 | For a graph with `N` nodes, node identifiers shall be contiguous integers in the range `[0, N)`. | Validate identifiers while converting or loading a graph. |
+| FR-GRAPH-03 | Graph topology shall be stored in CSR, CSC, or an equivalent compressed sparse format. | Inspect the in-memory representation and report its storage size. |
+| FR-GRAPH-04 | The engine shall support traversal of the neighbors required by the selected message-passing formulation. | Execute aggregation on a graph with known neighborhoods. |
+| FR-GRAPH-05 | The core engine shall support contiguous row-major `float32` node-feature matrices. | Load and process feature matrices with multiple dimensions and verify their layout/dtype. |
+| FR-GRAPH-06 | The graph topology shall remain unchanged during one inference run. | Inspect the inference API and execute repeated runs on the same graph. |
+| FR-GRAPH-07 | The engine shall handle nodes with zero stored relevant neighbors without invalid memory access or division by zero. | Execute a test graph containing an isolated or zero-in-degree node. |
+| FR-GRAPH-08 | The graph representation shall support optional scalar edge weights. Stored weights shall be finite and strictly positive. | Load weighted fixtures; reject zero, negative, NaN, and infinite stored weights. |
+| FR-GRAPH-09 | The accepted graph format shall record whether the graph is directed or undirected. For an undirected graph, every non-self edge shall be represented in both directions with equal weight, while a self-loop is represented once. | Inspect orientation metadata and validate symmetric/invalid undirected fixtures. |
+| FR-GRAPH-10 | The loaded sparse topology shall contain at most one entry per ordered pair; duplicate entries shall be rejected rather than silently combined. | Load a duplicate-edge fixture and verify controlled failure. |
+| FR-GRAPH-11 | Loading shall preserve explicit edges and self-loops. Model-required implicit messages may be represented as derived metadata but shall not silently rewrite the loaded sparse arrays. | Compare file arrays with loaded arrays and test explicit/missing self-loops. |
+| FR-GRAPH-12 | Indices within each canonical CSR row or CSC column shall be sorted so duplicate detection, deterministic conversion, and traversal assumptions are reproducible. | Load sorted and unsorted fixtures; either reject the latter or sort it only in an explicitly documented conversion step. |
+
+### 4.2 Model and inference
+
+| ID | Requirement | Verification |
+| --- | --- | --- |
+| FR-MODEL-01 | The engine shall implement at least two distinct GNN architectures. The selected architectures shall be identified in [semantics.md](semantics.md). | Execute and verify one complete model of every selected required type. |
+| FR-MODEL-02 | Each required model type shall support one or more message-passing layers. | Execute valid one-layer and multi-layer configurations for every selected type. |
+| FR-MODEL-03 | Layer weights and parameters shall be supplied before inference and shall remain fixed during a run. | Execute repeated runs and verify that parameters are not modified. |
+| FR-MODEL-04 | The output of layer `l` shall be used as the input of layer `l + 1`. | Verify an end-to-end model containing at least two layers. |
+| FR-MODEL-05 | The engine shall support configurable input, hidden, and output feature dimensions. | Execute models with at least two valid dimension configurations. |
+| FR-MODEL-06 | The engine shall validate graph, feature, layer, and weight dimensions before accessing incompatible data. | Provide invalid configurations and verify controlled failure. |
+| FR-MODEL-07 | Every required model type shall apply its documented aggregation, update, self-node/self-loop, weight, bias, and activation semantics consistently across all executors and strategies. | Compare each selected type's backend outputs using Section 6. |
+| FR-MODEL-08 | The engine shall return a dense node embedding/feature matrix with shape `N x F_out`, where each row contains the output feature vector for the corresponding input node. | Verify that the output has `N` rows and `F_out` columns after inference. |
+| FR-MODEL-09 | The model representation shall retain the type, dimensions, parameters, and configuration of every layer without changing executor or workspace ownership rules. | Inspect every selected model contract and reject invalid type/configuration data. |
+| FR-MODEL-10 | Every selected GNN architecture shall have a complete normative contract in [semantics.md](semantics.md), including tensor shapes, aggregation, update, self-node/self-loop, bias, activation, and numerical behavior. | Compare each selected layer type with an independent hand-calculated fixture. |
+| FR-MODEL-11 | A mixed sequence of implemented layer types is permitted but not required for core completion. When enabled, it shall validate adjacent dimensions and executor capabilities before inference. | If mixed execution is selected, run one compatible mixed sequence and reject an incompatible one. |
+
+### 4.3 Data loading and configuration
+
+| ID | Requirement | Verification |
+| --- | --- | --- |
+| FR-IO-01 | The program shall load graph topology and node features from external data rather than relying only on objects compiled into an example executable. | Run the program with a documented external dataset. |
+| FR-IO-02 | The project shall define and document the accepted graph, feature, model-configuration, and parameter file formats, including orientation, dimensions, dtype, layout, and versioning. | Reproduce a complete workload load using only the format documentation. |
+| FR-IO-03 | Model parameters shall be loadable from external data or reproducibly generated from a documented configuration and seed. | Recreate the same parameters in two independent runs. |
+| FR-IO-04 | The program shall expose the configuration needed to select the dataset, model dimensions, model depth, execution backend, execution strategy, thread/launch configuration, warm-ups, and benchmark repetitions. | Inspect the command-line or configuration interface and execute a non-default configuration. |
+| FR-IO-05 | Invalid or unsupported input shall produce a diagnostic instead of undefined behavior. | Test malformed metadata and incompatible dimensions. |
+
+## 5. Execution backend requirements
+
+### 5.1 Sequential CPU
+
+| ID | Requirement | Verification |
+| --- | --- | --- |
+| EX-SEQ-01 | The project shall provide a single-threaded C++ implementation of the complete inference path for every required GNN type. | Execute every selected model type with one CPU thread and no parallel region. |
+| EX-SEQ-02 | The sequential implementation of each required GNN type shall define its native numerical baseline. | Use the corresponding sequential output in every backend correctness comparison. |
+| EX-SEQ-03 | Sequential execution shall use the same documented per-type semantics and compatible data as parallel execution. | Compare configurations and output dimensions across executors for every selected type. |
+
+### 5.2 Multi-core CPU
+
+| ID | Requirement | Verification |
+| --- | --- | --- |
+| EX-CPU-01 | The project shall provide one or more complete multi-threaded CPU inference implementations. At least one selected implementation shall execute every required GNN type, and every selected work mapping shall be identified in [semantics.md](semantics.md). | Inspect the selected profile, match it to the executable configurations, and execute every selected model type using multiple threads. |
+| EX-CPU-02 | Every selected multi-threaded implementation shall use a correct, documented work-partitioning and synchronization/reduction policy. | Inspect the mapping and verify its output against the corresponding sequential baseline. |
+| EX-CPU-03 | The number of OpenMP threads shall be configurable at run time for every selected multi-threaded implementation. | Execute each selected implementation with multiple thread counts. |
+| EX-CPU-04 | The CPU evaluation shall investigate load balancing on non-uniform degree distributions and document the scheduling or partitioning used by every selected implementation. | Benchmark the selected implementation or implementations on graphs with different degree distributions. |
+| EX-CPU-05 | The technical documentation shall explain why the project implements its chosen number of multi-threaded CPU variants and why each selected work mapping is appropriate for the graph representation and workloads. | Review the rationale and its connection to the measured results. |
+
+### 5.3 CUDA GPU
+
+| ID | Requirement | Verification |
+| --- | --- | --- |
+| EX-GPU-01 | The project shall provide one or more complete CUDA inference implementations. At least one selected implementation shall execute every required GNN type. | Execute every selected model type on a CUDA-capable GPU. |
+| EX-GPU-02 | The CUDA implementation shall manage device storage for graph topology, features, intermediate values, parameters, and outputs. | Inspect allocations and complete a multi-layer inference run. |
+| EX-GPU-03 | Every selected CUDA implementation shall be identified in [semantics.md](semantics.md) and shall define its thread/block work assignment, memory-access design, synchronization, and reduction behavior. | Inspect the selected profile, match it to the executable configurations, and benchmark each selected implementation. |
+| EX-GPU-04 | The technical documentation shall explain why the project implements its chosen number of CUDA variants and why each selected mapping or optimization is appropriate for the graph representation, feature layout, and workloads. | Review the rationale and its connection to the measured results. |
+| EX-GPU-05 | The CUDA implementation shall detect and report CUDA allocation, transfer, launch, and synchronization errors. | Exercise error checks and inspect the implementation. |
+| EX-GPU-06 | Multi-layer CUDA inference shall keep graph data, parameters, and intermediate node representations device-resident between layers. | Execute and verify a multi-layer model of every selected type without intermediate host round trips. |
+
+### 5.4 Cross-strategy comparison
+
+| ID | Requirement | Verification |
+| --- | --- | --- |
+| EX-COMP-01 | Every required GNN type shall execute through the sequential, multi-threaded CPU, and CUDA implementation families without changing its mathematical definition. | Run saved configurations of every selected GNN type on all three implementation families. |
+| EX-COMP-02 | When more than one multi-threaded CPU implementation is provided, those implementations shall be compared using equivalent semantics and input data. | Review the common configurations and reported results for every additional CPU implementation. |
+| EX-COMP-03 | When more than one CUDA implementation is provided, those implementations shall be compared using equivalent semantics and input data. | Review the common configurations and reported results for every additional CUDA implementation. |
+| EX-COMP-04 | Implementing more than the minimum number of CPU or CUDA variants is permitted but shall not change the required model semantics. | Verify every additional claimed-equivalent variant against the corresponding sequential baseline. |
+
+## 6. Correctness and validation requirements
+
+| ID | Requirement | Verification |
+| --- | --- | --- |
+| VER-01 | Every required OpenMP/CUDA implementation and every variant claimed to be numerically equivalent shall be compared against the native sequential CPU baseline before its performance result is accepted as equivalent. | Run the automated correctness check for every required or equivalence-claimed implementation. |
+| VER-02 | Floating-point comparisons shall use documented absolute and relative tolerances. | Inspect the verifier configuration and test values near both tolerances. |
+| VER-03 | Correctness tests shall include a graph of the supported orientation with non-uniform degrees. | Execute and record the test. |
+| VER-04 | Correctness tests shall include an isolated or zero-in-degree node. | Execute and record the test. |
+| VER-05 | Correctness tests shall cover one-layer and multi-layer models for every required GNN type. | Execute and record both depth cases for every selected type. |
+| VER-06 | A result that fails the default tolerance shall not be reported as a numerically equivalent core result. | Inspect benchmark classification and failure handling. |
+| VER-07 | The external-framework mapping for each required GNN type shall be compared with its native sequential baseline before framework performance results are accepted. | Compare external outputs for every selected type on saved fixtures/workloads. |
+
+## 7. Dataset requirements
+
+### 7.1 Synthetic datasets
+
+| ID | Requirement | Verification |
+| --- | --- | --- |
+| DATA-SYN-01 | The evaluation shall include at least one selected synthetic graph family: scale-free, random, or small-world. The other families are optional. | Generate and benchmark at least one configuration from the selected family. |
+| DATA-SYN-02 | Synthetic generation shall permit graph size and feature dimension to be varied. | Generate at least two sizes and two feature dimensions. |
+| DATA-SYN-03 | Synthetic graph generation shall be reproducible from documented parameters and a seed. | Generate the same graph twice and compare its topology. |
+| DATA-SYN-04 | Synthetic dataset configurations shall account for available CPU and GPU memory; omitted larger sizes shall be identified and justified in the report. | Compare the planned synthetic size range with the final experiments and documented memory limits. |
+
+### 7.2 Public datasets
+
+| ID | Requirement | Verification |
+| --- | --- | --- |
+| DATA-PUB-01 | The final evaluation shall include at least one public graph benchmark containing node features. | Convert, load, and benchmark the selected dataset. |
+| DATA-PUB-02 | The selected public data may come from Planetoid, OGB, or another documented source appropriate to node-level GNN inference. | Cite the dataset source and document conversion. |
+| DATA-PUB-03 | The project shall document any graph transformation, symmetrization, self-loop insertion, normalization, or feature conversion applied to a public dataset. | Reproduce the processed input from the documentation. |
+| DATA-PUB-04 | Dataset selection shall account for available CPU and GPU memory; omitted larger datasets shall be identified and justified in the report. | Compare the dataset plan with the final report. |
+
+Python tools and framework dataset loaders may be used to download, generate, and convert inputs. These tools are outside the measured native inference path.
+
+## 8. Performance evaluation requirements
+
+### 8.1 Required comparisons
+
+| ID | Requirement | Verification |
+| --- | --- | --- |
+| BEN-COMP-01 | The evaluation shall compare sequential CPU, multi-threaded CPU, and CUDA GPU inference for every required GNN type. | Include all three implementation families for every selected type in the final results. |
+| BEN-COMP-02 | The evaluation shall measure every selected multi-threaded CPU implementation relative to the sequential baseline and shall compare CPU variants directly when more than one is implemented. | Include the selected CPU implementation or implementations on common workloads. |
+| BEN-COMP-03 | The evaluation shall measure every selected CUDA implementation relative to the sequential baseline and shall compare CUDA variants directly when more than one is implemented. | Include the selected CUDA implementation or implementations on common workloads. |
+| BEN-COMP-04 | The evaluation shall measure graph-size scalability across at least one order of magnitude and shall include a million-node-scale case when permitted by the available memory; otherwise the largest feasible size and limiting resource shall be reported. | Benchmark the documented size range and justify any lower upper bound. |
+| BEN-COMP-05 | The evaluation shall measure the effect of node-feature dimension. | Benchmark multiple feature dimensions. |
+| BEN-COMP-06 | The evaluation shall measure the effect of model depth. | Benchmark multiple layer counts. |
+| BEN-COMP-07 | The evaluation shall discuss how graph structure or degree distribution affects the selected implementations using the chosen synthetic family and public dataset. This requirement does not require all three suggested synthetic families. | Include results from the selected synthetic family and public dataset, with their structural/degree statistics. |
+| BEN-COMP-08 | If shared memory is applicable to a selected CUDA implementation, the evaluation shall compare a justified shared-memory configuration with the corresponding non-shared-memory configuration on equivalent workloads. If it is not applicable, the report shall explain why no useful reusable data or cooperative operation was identified. | Report performance and resource use for both configurations, or inspect the documented non-applicability rationale. |
+| BEN-COMP-09 | The evaluation shall address sparse versus dense adjacency storage. A dense runtime comparison may be limited to feasible graph sizes, but larger cases shall include a quantitative storage infeasibility analysis. | Include a controlled small-graph comparison or calculated dense/sparse storage table, with the chosen limit justified. |
+| BEN-COMP-10 | The evaluation shall compare the native engine with at least one established external GNN framework using equivalent workloads for every required GNN type. | Include framework and native results for every selected GNN type. |
+| BEN-COMP-11 | The external-framework comparison shall report throughput and peak memory with documented, compatible timing boundaries. | Report both metrics and explain unavoidable framework/native boundary differences. |
+
+No absolute speedup is required. Negative or neutral results are valid when the workload, measurement method, and causes are analyzed correctly.
+
+One implementation variant may satisfy more than one comparison requirement when its design genuinely covers each one. The report shall make such overlap explicit and explain why the total number of implemented CPU and CUDA variants is sufficient for the selected experimental questions.
+
+### 8.2 Required measurements
+
+| ID | Requirement | Verification |
+| --- | --- | --- |
+| BEN-MET-01 | The benchmark shall measure end-to-end inference time using a documented boundary. Offline conversion and dataset download shall be excluded; file loading and backend setup shall be reported separately when they are not included. | Record the boundary and metric for every compared implementation. |
+| BEN-MET-02 | CUDA benchmarks shall measure kernel or device-execution time separately from end-to-end time. | Report both timing scopes. |
+| BEN-MET-03 | The benchmark shall report throughput in nodes/s, edges/s, or both. | Verify calculation from workload size and measured time. |
+| BEN-MET-04 | The benchmark shall report speedup relative to the matching GNN type's sequential CPU baseline. | Verify the speedup calculation for every selected type. |
+| BEN-MET-05 | The OpenMP evaluation shall report scalability across multiple thread counts. | Include a thread-scaling table or plot. |
+| BEN-MET-06 | The benchmark shall report host and device peak memory usage using documented measurement methods. | Reproduce memory measurements for representative configurations. |
+
+### 8.3 Measurement procedure
+
+| ID | Requirement | Verification |
+| --- | --- | --- |
+| BEN-PROC-01 | Before recorded samples are collected, each timed configuration shall execute one or more unmeasured warm-up iterations when startup, cache, runtime-initialization, or GPU-context effects apply. The warm-up count shall be documented and warm-up time shall be excluded from the reported samples. | Inspect the runner and confirm that documented warm-up iterations occur before measurement and are not included in recorded sample times. |
+| BEN-PROC-02 | Each configuration shall be measured repeatedly. | Record the repetition count with the result. |
+| BEN-PROC-03 | Repeated measurements shall be summarized using a documented central-tendency and variability statistic. | Verify reported mean and standard deviation, or median and range. |
+| BEN-PROC-04 | A core backend comparison shall use the same GNN type, graph, feature dimensions, model depth, numerical precision, parameters, and per-type semantics. | Inspect saved benchmark configurations for every selected type. |
+| BEN-PROC-05 | Data conversion and dataset download time shall be excluded from inference time. | Inspect timing boundaries. |
+| BEN-PROC-06 | File loading, host-device transfer, setup, and inference boundaries shall be reported explicitly. | Review benchmark documentation and output. |
+| BEN-PROC-07 | Benchmark results shall be exportable in a machine-readable format such as CSV. | Run an experiment and parse the output file. |
+| BEN-PROC-08 | Exact graph sizes, feature dimensions, depths, thread/launch settings, and repetition counts shall be documented in the experiment plan. | Review the plan and final configuration records. |
+| BEN-PROC-09 | External-framework records shall include framework/dependency versions, device, dtype, execution mode, synchronization, preprocessing/caching policy, warm-up, repetitions, and timing/memory boundaries. | Inspect the metadata accompanying external results. |
+
+## 9. Architecture and maintainability requirements
+
+| ID | Requirement | Verification |
+| --- | --- | --- |
+| NFR-ARCH-01 | Graph storage, model/layer definition, layer-specific operation ordering, executor operations, work-mapping strategy, and workspace ownership shall have separate responsibilities as defined in [architecture.md](architecture.md). | Review module boundaries and dependencies. |
+| NFR-ARCH-02 | Each required GNN type shall be executable by sequential, OpenMP, and CUDA executors without changing its mathematical definition. | Run saved configurations of every selected type on all required executor families. |
+| NFR-ARCH-03 | Each supported layer type shall define its algorithm at the layer boundary, while executors provide typed hardware operations and strategies provide work mapping. Executors shall not own a monolithic end-to-end model algorithm. | Inspect `forward_layer`, executor, strategy, and model-runner boundaries. |
+| NFR-ARCH-04 | Adding a new layer or execution strategy should require changes localized to the relevant extension points. | Document the extension procedure and affected modules. |
+| NFR-ARCH-05 | Common validation, semantic metadata preparation, and model semantics should not be duplicated unnecessarily across executors. | Review the implementation for divergent duplicate logic. |
+| NFR-ARCH-06 | Executor/strategy selection shall occur outside per-layer-operation node, edge, and feature loops. | Inspect dispatch sites and performance-critical loops. |
+| NFR-ARCH-07 | Performance-critical paths shall avoid unnecessary data copies and repeated allocations; reusable workspace capacity shall be established before timed repetitions. | Profile or inspect the measured inference loop. |
+| NFR-ARCH-08 | Any abstraction used inside performance-critical loops shall have negligible measured overhead or a documented justification. | Compare or inspect the relevant execution path. |
+
+## 10. Technology and portability constraints
+
+| ID | Constraint | Verification |
+| --- | --- | --- |
+| CON-01 | Host code shall target C++20. | Build with the documented host compiler configuration. |
+| CON-02 | GPU code shall use CUDA and shall remain compatible with the selected CUDA toolkit and supported host compiler. | Build and run in the documented CUDA environment. |
+| CON-03 | Multi-core CPU execution shall use OpenMP. | Build and run the OpenMP target. |
+| CON-04 | Meson and Ninja shall be the primary build tools. | Configure and compile from a clean build directory. |
+| CON-05 | Sequential and OpenMP targets shall build on at least one documented Windows or Unix-like host toolchain. Every environment claimed as supported shall be verified before delivery. | Build and test on the declared supported host environment or environments. |
+| CON-06 | The required CUDA environment shall be Linux, WSL2, or Google Colab. Native MSVC and MSYS2 CUDA support is not required. | Build and run in at least one supported CUDA environment. |
+| CON-07 | The measured core inference implementation shall be native C++/CUDA and shall not delegate its graph operations or GNN layers to a high-level deep-learning framework. | Inspect dependencies and measured execution paths. |
+| CON-08 | At least one established external GNN framework shall be used for the required comparison, but it shall remain outside the measured native inference path. | Inspect dependencies, process boundaries, and timing records. |
+
+The supported C++ compiler and CUDA toolkit versions shall be verified and recorded before the implementation environment is frozen.
+
+## 11. Optional requirements
+
+| ID | Optional feature |
+| --- | --- |
+| OPT-01 | Support both directed and undirected graphs instead of only one orientation. |
+| OPT-02 | Implement a third or subsequent GNN architecture beyond the required minimum of two. |
+| OPT-03 | Support dense edge-feature vectors and attention-weighted aggregation unless required by a replacement selected GNN type. |
+| OPT-04 | Apply a final classifier or softmax and report node-classification accuracy. |
+| OPT-05 | Execute a mixed model containing layers from more than one selected GNN architecture. |
+
+## 12. Deliverables
+
+| ID | Deliverable |
+| --- | --- |
+| DEL-01 | C++ and CUDA source files for all required implementations. |
+| DEL-02 | A README containing build instructions, run instructions, execution parameters, and dataset formats. |
+| DEL-03 | Technical documentation describing graph representation, memory layout, the selected GNN semantics, architecture, CPU and GPU strategies, handling of skewed degree distributions, and the rationale for the number and type of implemented CPU/CUDA strategies. |
+| DEL-04 | Correctness tests and instructions for reproducing them. |
+| DEL-05 | Synthetic graph generators and public-dataset preparation/loading tools required by the evaluation. |
+| DEL-06 | A reproducible benchmark runner and machine-readable result files. |
+| DEL-07 | An experimental report containing the required GNN-type, native/external-framework, timing, throughput, memory, scalability, work-mapping, applicable shared-memory, and sparse/dense comparisons, with methodology and analysis. |
+| DEL-08 | Slides for a 20-minute oral presentation. |
+
+## 13. Completion criteria
+
+The required project scope is complete when:
+
+1. every mandatory requirement has been implemented or satisfied;
+2. every selected required GNN type passes native-baseline correctness checks on its sequential, OpenMP, and CUDA paths;
+3. all required backend, GNN-type, external-framework, strategy, storage, applicable shared-memory, and scalability comparisons have been executed;
+4. the datasets, configurations, environment, and measurement procedure are documented;
+5. the reported results can be reproduced from the delivered code and instructions.

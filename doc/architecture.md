@@ -230,7 +230,7 @@ The canonical required representation is incoming-neighbor CSC:
 
 The graph is immutable during an inference run. CSC is used because the sequential and vertex-centric paths pull all incoming messages for one destination and can own that destination's output row without synchronization.
 
-Supporting both directed and undirected orientations is optional. One clearly documented orientation is sufficient for the required project. If both are supported, one CSC graph class with orientation metadata is sufficient because storage and incoming-neighbor traversal are identical; the undirected case adds reciprocal-edge validation rather than a second graph hierarchy. Regardless of orientation, an adjacency entry always means `source -> destination`.
+Although the minimum requirements permit a single orientation, this implementation selects support for both directed and undirected graphs. A simple `GraphOrientation` enum in graph metadata distinguishes them. Both use the same CSC storage and incoming-neighbor traversal contract; the undirected case adds reciprocal-edge validation rather than different layer or model definitions. Layers consume the common graph view and do not branch on orientation. Regardless of the enum value, an adjacency entry always means `source -> destination`.
 
 ### 6.2 Dense matrices
 

@@ -95,7 +95,7 @@ The status values below are the agreed planning snapshot; they intentionally do 
 | T-DATA-01 | Reproducible synthetic graph generator | `s362415` | Completed |
 | T-DATA-03 | Public dataset preparation | `s362415` | Completed |
 | T-CON-02, T-CON-06–T-CON-08 | Matrix/views, executor contracts, workspaces, and dispatch | `s360540` | Assigned |
-| T-CON-05 (GCN) | GCN degree and self-message semantic preparation | `s362415` | Assigned |
+| T-CON-05 (GCN) | GCN degree and self-message semantic preparation | `s362415` | Completed |
 | T-CON-05 (GraphSAGE) | GraphSAGE neighbor-total semantic preparation | `s296248` | Assigned |
 | T-IO-01, T-IO-03–T-IO-06 | Bundle, feature/model/parameter loading, CLI, results, and validation | `s360540` | Assigned |
 | T-SEQ-01, T-SEQ-05–T-SEQ-06 | Shared sequential primitives, model execution, and workspace reuse | `s360540` | Assigned |

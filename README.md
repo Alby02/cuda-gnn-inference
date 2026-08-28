@@ -93,6 +93,7 @@ The status values below are the agreed planning snapshot; they intentionally do 
 | T-CON-03–T-CON-04 | GCN/GraphSAGE layer descriptors and generic model definition | `s360540` | Completed |
 | T-IO-02 | Canonical graph loader and orientation validation | `s362415` | Completed |
 | T-DATA-01 | Reproducible synthetic graph generator | `s362415` | Completed |
+| T-DATA-03 | Public dataset preparation | `s362415` | Completed |
 | T-CON-02, T-CON-06–T-CON-08 | Matrix/views, executor contracts, workspaces, and dispatch | `s360540` | Assigned |
 | T-CON-05 (GCN) | GCN degree and self-message semantic preparation | `s362415` | Assigned |
 | T-CON-05 (GraphSAGE) | GraphSAGE neighbor-total semantic preparation | `s296248` | Assigned |
@@ -106,14 +107,14 @@ The status values below are the agreed planning snapshot; they intentionally do 
 | T-OMPV-03, T-OMPV-05 | Common OpenMP dense/elementwise operations and workspace | `s360540` | Assigned |
 | T-OMPV-01, T-OMPV-04 (GCN) | Destination-owned OpenMP GCN and its configurations | `s362415` | Assigned |
 | T-OMPV-02, T-OMPV-04 (GraphSAGE) | Destination-owned OpenMP GraphSAGE and its configurations | `s296248` | Assigned |
-| T-OMPE-01–T-OMPE-05 | Conditional additional OpenMP mapping | `s362415` | Assigned |
+| T-OMPE-01–T-OMPE-05 | Conditional additional OpenMP mapping | `s296248` | Assigned |
 | T-CUDA-01–T-CUDA-04, T-CUDAV-03 | CUDA ownership/runtime and common CUDA operations | `s360540` | Assigned |
 | T-CUDAV-01, T-CUDAV-04 (GCN) | CUDA GCN aggregation and launch configurations | `s362415` | Assigned |
 | T-CUDAV-02, T-CUDAV-04 (GraphSAGE) | CUDA GraphSAGE aggregation and launch configurations | `s296248` | Assigned |
 | T-CUDAA-01–T-CUDAA-04 | Conditional additional CUDA mapping | `s296248` | Assigned |
 | T-EXP-01–T-EXP-03 | Shared-memory and sparse/dense studies | `s296248` | Assigned |
 | T-DATA-02, T-DATA-04/T-DATA-05 (GCN) | Synthetic workload ranges and GCN parameters/counts | `s362415` | Assigned |
-| T-DATA-03, T-DATA-04/T-DATA-05 (GraphSAGE) | Public dataset preparation and GraphSAGE parameters/counts | `s296248` | Assigned |
+| T-DATA-04/T-DATA-05 (GraphSAGE) | GraphSAGE parameters/counts | `s296248` | Assigned |
 | T-FRM-01, T-FRM-02, T-FRM-05 | Shared external-framework adapter and measurement boundaries | `s360540` | Assigned |
 | T-FRM-03, T-FRM-06 (GCN) | GCN framework mapping and comparison | `s362415` | Assigned |
 | T-FRM-04, T-FRM-06 (GraphSAGE) | GraphSAGE framework mapping and comparison | `s296248` | Assigned |

@@ -10,10 +10,10 @@
 namespace gnn {
 
 template <typename T = float>
-requires (std::is_arithmetic_v<T>)
+    requires(std::is_arithmetic_v<T>)
 class Matrix {
 public:
-    Matrix() = default; //TODO: Remove later
+    Matrix() = default; // TODO: Remove later
 
     Matrix(std::size_t rows, std::size_t cols, T initialValue = T{})
         : rows_(rows), cols_(cols), data_(rows * cols, initialValue) {}

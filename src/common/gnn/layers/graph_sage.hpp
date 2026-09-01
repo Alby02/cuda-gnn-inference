@@ -10,30 +10,22 @@
 
 namespace gnn::layers {
 
-
 class GraphSAGE {
 public:
-    enum class AggregationType {
-        MEAN,
-        SUM,
-        MAX
-    };
+    enum class AggregationType { MEAN, SUM, MAX };
 
-    enum class ActivationType {
-        NONE,
-        RELU
-    };
+    enum class ActivationType { NONE, RELU };
 
-    GraphSAGE(Matrix<float> W_neigh,
-                   Matrix<float> W_self = {0, 0},
-                   std::vector<float> bias = {}, AggregationType agg_type = AggregationType::MEAN,
-                   ActivationType act_type = ActivationType::NONE)
+    GraphSAGE(Matrix<float> W_neigh, Matrix<float> W_self = {0, 0}, std::vector<float> bias = {},
+              AggregationType agg_type = AggregationType::MEAN,
+              ActivationType act_type = ActivationType::NONE)
         : W_neigh_(std::move(W_neigh)), W_self_(std::move(W_self)), bias_(std::move(bias)),
           agg_type_(agg_type), act_type_(act_type) {
         if (W_neigh_.empty()) {
             throw std::invalid_argument("W_neigh cannot be empty");
         }
-        if (!W_self_.empty() && (W_self_.rows() != W_neigh_.rows() || W_self_.cols() != W_neigh_.cols())) {
+        if (!W_self_.empty() &&
+            (W_self_.rows() != W_neigh_.rows() || W_self_.cols() != W_neigh_.cols())) {
             throw std::invalid_argument("W_self dimensions must match W_neigh dimensions");
         }
         if (!bias_.empty() && bias_.size() != W_neigh_.cols()) {
@@ -61,9 +53,7 @@ private:
 };
 
 template <Executor E>
-void forward_layer(const GraphSAGE& layer,
-                   const graph::GraphCSC&,
-                   E& executor,
+void forward_layer(const GraphSAGE& layer, const graph::GraphCSC&, E& executor,
                    typename E::WorkspaceType& workspace) {
     executor.rowByColumn(workspace.current(), layer.getWNeigh(), workspace.next());
 }

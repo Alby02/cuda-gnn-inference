@@ -5,16 +5,14 @@
 #include <span>
 #include <vector>
 
-
 namespace graph {
 
 class GraphCSC {
 public:
-    GraphCSC(bool isDirected, std::vector<std::uint64_t> colPtr,
-                std::vector<std::uint64_t> rowInd, std::vector<float> weights = {})
-        : isDirected_(isDirected),
-          colPtr_(std::move(colPtr)),
-          rowInd_(std::move(rowInd)), weights_(std::move(weights)){};
+    GraphCSC(bool isDirected, std::vector<std::uint64_t> colPtr, std::vector<std::uint64_t> rowInd,
+             std::vector<float> weights = {})
+        : isDirected_(isDirected), colPtr_(std::move(colPtr)), rowInd_(std::move(rowInd)),
+          weights_(std::move(weights)) {};
 
     // Graph base properties
     [[nodiscard]] std::uint64_t getNumNodes() const noexcept { return colPtr_.size() - 1; }

@@ -11,7 +11,9 @@
 namespace gnn {
 
 template <Executor E>
-class InferenceRuntime { //TODO: Check maybe move the model to the constructor and make it work for CUDA (curenty not working because the model data is in ram and not in GPU memory)
+class InferenceRuntime { // TODO: Check maybe move the model to the constructor and make it work for
+                         // CUDA (curenty not working because the model data is in ram and not in
+                         // GPU memory)
 public:
     using ExecutorType = E;
     using WorkspaceType = typename ExecutorType::WorkspaceType;
@@ -20,8 +22,7 @@ public:
     explicit InferenceRuntime(ExecutorType executor = {}) : executor_(std::move(executor)) {}
 
     template <Layer... Layers>
-    [[nodiscard]] BufferType run(const graph::GraphCSC& graph,
-                                 const Model<Layers...>& model,
+    [[nodiscard]] BufferType run(const graph::GraphCSC& graph, const Model<Layers...>& model,
                                  BufferType input) {
         validate(graph, model, input);
         WorkspaceType workspace{std::move(input)};
@@ -29,20 +30,13 @@ public:
     }
 
 private:
-    template<Layer... Layers>
-    [[nodiscard]] BufferType executeModel(
-        const graph::GraphCSC& graph,
-        const Model<Layers...>& model,
-        WorkspaceType& workspace)
-    {
+    template <Layer... Layers>
+    [[nodiscard]] BufferType executeModel(const graph::GraphCSC& graph,
+                                          const Model<Layers...>& model, WorkspaceType& workspace) {
         for (const auto& layer : model.getLayers()) {
             std::visit(
                 [&](const auto& concreteLayer) {
-                    forward_layer(
-                        concreteLayer,
-                        graph,
-                        executor_,
-                        workspace);
+                    forward_layer(concreteLayer, graph, executor_, workspace);
                 },
                 layer);
 
@@ -53,8 +47,7 @@ private:
     }
 
     template <Layer... Layers>
-    static void validate(const graph::GraphCSC& graph,
-                         const Model<Layers...>& model,
+    static void validate(const graph::GraphCSC& graph, const Model<Layers...>& model,
                          const BufferType& input) {
         if (model.empty()) {
             throw std::invalid_argument("Inference model cannot be empty.");

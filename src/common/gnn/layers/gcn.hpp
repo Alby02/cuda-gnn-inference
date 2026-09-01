@@ -8,19 +8,14 @@
 #include "../../data/matrix.hpp"
 #include "../../execution/executor.hpp"
 
-
 namespace gnn::layers {
 
 class GCN {
 public:
-
-    enum class ActivationType {
-        NONE,
-        RELU
-    };
+    enum class ActivationType { NONE, RELU };
 
     GCN(Matrix<float> W_neigh, std::vector<float> bias = {},
-             ActivationType act_type = ActivationType::NONE)
+        ActivationType act_type = ActivationType::NONE)
         : W_neigh_(std::move(W_neigh)), bias_(std::move(bias)), act_type_(act_type) {
         if (W_neigh_.empty()) {
             throw std::invalid_argument("W_neigh cannot be empty");
@@ -48,9 +43,7 @@ private:
 };
 
 template <Executor E>
-void forward_layer(const GCN& layer,
-                   const graph::GraphCSC&,
-                   E& executor,
+void forward_layer(const GCN& layer, const graph::GraphCSC&, E& executor,
                    typename E::WorkspaceType& workspace) {
     executor.rowByColumn(workspace.current(), layer.getWNeigh(), workspace.next());
 }

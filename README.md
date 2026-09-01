@@ -156,11 +156,19 @@ meson setup builddir
 # 2. Compile targets
 meson compile -C builddir
 
-# 3. Run one of the modes exposed by the single CLI
+# 3. Format and statically analyze the source (Ninja backend)
+ninja -C builddir clang-format
+ninja -C builddir clang-tidy
+
+# 4. Run one of the modes exposed by the single CLI
 ./builddir/gnn sequential
 ./builddir/gnn parallel
 ./builddir/gnn cuda
 ```
+
+The `clang-format` and `clang-tidy` targets are generated automatically by
+Meson when the corresponding tools and project configuration files are
+available (`.clang-format` and `.clang-tidy`).
 
 The sequential mode is always available. The `parallel` and `cuda` modes are
 listed by `gnn --help` only when OpenMP and CUDA, respectively, were detected

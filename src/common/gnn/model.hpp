@@ -10,8 +10,7 @@
 
 namespace gnn {
 
-template <Layer... Layers>
-class Model {
+template <Layer... Layers> class Model {
 public:
     using LayerVariant = std::variant<Layers...>;
 

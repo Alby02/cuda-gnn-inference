@@ -1,28 +1,31 @@
 #pragma once
 
-#include <algorithm>
 #include <cstddef>
 #include <span>
 #include <stdexcept>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
-namespace matrix {
+namespace gnn {
 
-template <typename T = float> class DenseMatrix {
+template <typename T = float>
+requires (std::is_arithmetic_v<T>)
+class Matrix {
 public:
-    DenseMatrix() = default;
+    Matrix() = default; //TODO: Remove later
 
-    DenseMatrix(std::size_t rows, std::size_t cols, T initialValue = T{})
+    Matrix(std::size_t rows, std::size_t cols, T initialValue = T{})
         : rows_(rows), cols_(cols), data_(rows * cols, initialValue) {}
 
-    DenseMatrix(std::size_t rows, std::size_t cols, std::vector<T> data)
+    Matrix(std::size_t rows, std::size_t cols, std::vector<T> data)
         : rows_(rows), cols_(cols), data_(std::move(data)) {
         if (data_.size() != rows_ * cols_) {
             throw std::invalid_argument("DenseMatrix dimension mismatch with data size.");
         }
     }
 
-    explicit DenseMatrix(const std::vector<std::vector<T>>& grid) {
+    explicit Matrix(const std::vector<std::vector<T>>& grid) {
         if (grid.empty()) {
             return;
         }
@@ -44,6 +47,13 @@ public:
 
     [[nodiscard]] T* data() noexcept { return data_.data(); }
     [[nodiscard]] const T* data() const noexcept { return data_.data(); }
+
+    // TODO: Make a proper implementation
+    void resize(std::size_t rows, std::size_t cols, T initialValue = T{}) {
+        rows_ = rows;
+        cols_ = cols;
+        data_.assign(rows * cols, initialValue);
+    }
 
     // Unchecked indexing (high performance execution)
     T& operator()(std::size_t r, std::size_t c) noexcept { return data_[r * cols_ + c]; }
@@ -86,4 +96,4 @@ private:
     std::vector<T> data_;
 };
 
-} // namespace matrix
+} // namespace gnn

@@ -2,22 +2,22 @@
 
 #include <cstddef>
 #include <stdexcept>
+#include <utility>
+#include <variant>
 #include <vector>
 
 #include "layer.hpp"
 
 namespace gnn {
 
-template <typename LayerVariant = AllKnownLayers> class GNNModel {
+template <Layer... Layers>
+class Model {
 public:
-    GNNModel() = default;
+    using LayerVariant = std::variant<Layers...>;
 
-    explicit GNNModel(std::vector<LayerVariant> layers) : layers_(std::move(layers)) {
-        for (std::size_t i = 0; i < layers_.size(); ++i) {
-            if (layerRequiresEdgeFeatures(layers_.at(i))) {
-                requires_edge_features_ = true;
-            }
-            if (i > 0 && getLayerOutDim(layers_.at(i - 1)) != getLayerInDim(layers_.at(i))) {
+    explicit Model(std::vector<LayerVariant> layers) : layers_(std::move(layers)) {
+        for (std::size_t i = 1; i < layers_.size(); ++i) {
+            if (getLayerOutDim(layers_[i - 1]) != getLayerInDim(layers_[i])) {
                 throw std::invalid_argument("Layer dimension mismatch in GNNModel pipeline.");
             }
         }
@@ -25,8 +25,6 @@ public:
 
     [[nodiscard]] std::size_t numLayers() const noexcept { return layers_.size(); }
     [[nodiscard]] bool empty() const noexcept { return layers_.empty(); }
-
-    [[nodiscard]] const LayerVariant& getLayer(std::size_t idx) const { return layers_.at(idx); }
 
     [[nodiscard]] std::size_t getInputDim() const {
         if (layers_.empty()) {
@@ -42,13 +40,20 @@ public:
         return getLayerOutDim(layers_.back());
     }
 
-    [[nodiscard]] bool requiresEdgeFeatures() const noexcept { return requires_edge_features_; }
-
     [[nodiscard]] const std::vector<LayerVariant>& getLayers() const noexcept { return layers_; }
 
 private:
+    [[nodiscard]] static std::size_t getLayerInDim(const LayerVariant& layer) {
+        return std::visit([](const auto& concreteLayer) { return concreteLayer.getInDim(); },
+                          layer);
+    }
+
+    [[nodiscard]] static std::size_t getLayerOutDim(const LayerVariant& layer) {
+        return std::visit([](const auto& concreteLayer) { return concreteLayer.getOutDim(); },
+                          layer);
+    }
+
     std::vector<LayerVariant> layers_;
-    bool requires_edge_features_{false};
 };
 
 } // namespace gnn

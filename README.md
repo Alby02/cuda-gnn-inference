@@ -85,26 +85,35 @@ flowchart TD
 
 The project uses one shared-infrastructure stream and two vertical model streams. All three members write parallel code: `s362415` takes GCN through OpenMP and CUDA, `s296248` does the same for GraphSAGE, and `s360540` implements the common OpenMP/CUDA infrastructure and primitives.
 
-The status values below are the agreed planning snapshot; they intentionally do not infer progress from the current source tree. Only graph representation, model/layer definitions, graph generation, and graph loading are marked completed. Every other task is marked assigned.
+The statuses below combine project-level progress with an audit of the current branch against the
+acceptance criteria in [`doc/features.md`](doc/features.md). `Completed`
+means the work is integrated in this branch; `Completed — pending merge` means it was completed on
+another branch and still needs to be merged; `Scheduled` means implementation has started but is
+incomplete; `Assigned` means implementation has not started.
 
 | Task ID(s) | Task | Student ID | Status |
 | :--- | :--- | :---: | :---: |
-| T-CON-01 | Directed/undirected canonical CSC graph representation and orientation enum | `s360540` | Completed |
+| T-CON-01 | Directed/undirected canonical CSC graph representation and orientation enum | `s360540` | Completed — pending merge |
 | T-CON-03–T-CON-04 | GCN/GraphSAGE layer descriptors and generic model definition | `s360540` | Completed |
-| T-IO-02 | Canonical graph loader and orientation validation | `s362415` | Completed |
-| T-DATA-01 | Reproducible synthetic graph generator | `s362415` | Completed |
-| T-DATA-03 | Public dataset preparation | `s362415` | Completed |
-| T-CON-02, T-CON-06–T-CON-08 | Matrix/views, executor contracts, workspaces, and dispatch | `s360540` | Assigned |
-| T-CON-05 (GCN) | GCN degree and self-message semantic preparation | `s362415` | Completed |
+| T-IO-02 | Canonical graph loader and orientation validation | `s362415` | Completed — pending merge |
+| T-DATA-01 | Reproducible synthetic graph generator | `s362415` | Completed — pending merge |
+| T-DATA-03 | Public dataset preparation | `s362415` | Completed — pending merge |
+| T-CON-02, T-CON-06–T-CON-08 | Matrix/views, executor contracts, workspaces, and dispatch | `s360540` | Scheduled |
+| T-CON-05 (GCN) | GCN degree and self-message semantic preparation | `s362415` | Completed — pending merge |
 | T-CON-05 (GraphSAGE) | GraphSAGE neighbor-total semantic preparation | `s296248` | Assigned |
-| T-IO-01, T-IO-03–T-IO-06 | Bundle, feature/model/parameter loading, CLI, results, and validation | `s360540` | Assigned |
-| T-SEQ-01, T-SEQ-05–T-SEQ-06 | Shared sequential primitives, model execution, and workspace reuse | `s360540` | Assigned |
-| T-SEQ-02, T-SEQ-04 (GCN) | Sequential GCN aggregation and layer execution | `s362415` | Assigned |
-| T-SEQ-03, T-SEQ-04 (GraphSAGE) | Sequential GraphSAGE aggregation and layer execution | `s296248` | Assigned |
+| T-IO-01, T-IO-03, T-IO-05 | Bundle, feature/model/parameter loading, and result schema | `s360540` | Assigned |
+| T-IO-04, T-IO-06 | CLI configuration and unsupported-composition validation | `s360540` | Scheduled |
+| T-SEQ-01 | Shared sequential dense, bias, activation, and branch-combination primitives | `s360540` | Scheduled |
+| T-SEQ-05 | Generic model execution with layer iteration and ping-pong buffers | `s360540` | Completed |
+| T-SEQ-06 | Allocation-free steady-state workspace reuse | `s360540` | Scheduled |
+| T-SEQ-02 | Sequential GCN normalized aggregation | `s362415` | Assigned |
+| T-SEQ-04 (GCN) | Sequential GCN layer execution | `s362415` | Scheduled |
+| T-SEQ-03 | Sequential GraphSAGE weighted non-self mean | `s296248` | Assigned |
+| T-SEQ-04 (GraphSAGE) | Sequential GraphSAGE layer execution | `s296248` | Scheduled |
 | T-VER-03, T-VER-05 | Common comparison and invalid-input test infrastructure | `s360540` | Assigned |
 | T-VER-01, T-VER-04/T-VER-06 (GCN) | GCN fixtures and native/framework backend verification | `s362415` | Assigned |
 | T-VER-02, T-VER-04/T-VER-06 (GraphSAGE) | GraphSAGE fixtures and native/framework backend verification | `s296248` | Assigned |
-| T-OMPV-03, T-OMPV-05 | Common OpenMP dense/elementwise operations and workspace | `s360540` | Assigned |
+| T-OMPV-03, T-OMPV-05 | Common OpenMP dense/elementwise operations and workspace | `s360540` | Scheduled |
 | T-OMPV-01, T-OMPV-04 (GCN) | Destination-owned OpenMP GCN and its configurations | `s362415` | Assigned |
 | T-OMPV-02, T-OMPV-04 (GraphSAGE) | Destination-owned OpenMP GraphSAGE and its configurations | `s296248` | Assigned |
 | T-OMPE-01–T-OMPE-05 | Conditional additional OpenMP mapping | `s296248` | Assigned |
@@ -121,7 +130,7 @@ The status values below are the agreed planning snapshot; they intentionally do 
 | T-BENCH-01, T-BENCH-02, T-BENCH-07 | Common benchmark runner, timing boundaries, and metadata | `s360540` | Assigned |
 | T-BENCH-03–T-BENCH-06 (OpenMP/GCN) | OpenMP scaling and GCN benchmark results | `s362415` | Assigned |
 | T-BENCH-03–T-BENCH-06 (CUDA/GraphSAGE) | CUDA configurations, memory, and GraphSAGE benchmark results | `s296248` | Assigned |
-| T-DEL-01–T-DEL-02 | Build, CLI, bundle, and run documentation | `s360540` | Assigned |
+| T-DEL-01–T-DEL-02 | Build, CLI, bundle, and run documentation | `s360540` | Scheduled |
 | T-DEL-03–T-DEL-04 (GCN/OpenMP) | GCN/OpenMP plots and report sections | `s362415` | Assigned |
 | T-DEL-03–T-DEL-05 (GraphSAGE/CUDA) | GraphSAGE/CUDA report sections and demonstration | `s296248` | Assigned |
 
@@ -147,15 +156,15 @@ meson setup builddir
 # 2. Compile targets
 meson compile -C builddir
 
-# 3. Run Sequential CPU target (Linux/macOS shell)
-./builddir/gnn_seq
-
-# 4. Run OpenMP Parallel CPU target
-./builddir/gnn_omp
-
-# 5. Run CUDA GPU target (if compiled on CUDA-enabled environment)
-./builddir/gnn_cuda
+# 3. Run one of the modes exposed by the single CLI
+./builddir/gnn sequential
+./builddir/gnn parallel
+./builddir/gnn cuda
 ```
+
+The sequential mode is always available. The `parallel` and `cuda` modes are
+listed by `gnn --help` only when OpenMP and CUDA, respectively, were detected
+while configuring the build.
 
 For detailed cross-platform environment setup (including Windows MSYS2 UCRT64 and Google Colab workflows), see [doc/environment.md](doc/environment.md).
 

@@ -106,7 +106,7 @@ incomplete; `Assigned` means implementation has not started.
 | T-SEQ-01 | Shared sequential dense, bias, activation, and branch-combination primitives | `s360540` | Scheduled |
 | T-SEQ-05 | Generic model execution with layer iteration and ping-pong buffers | `s360540` | Completed |
 | T-SEQ-06 | Allocation-free steady-state workspace reuse | `s360540` | Scheduled |
-| T-SEQ-02 | Sequential GCN normalized aggregation | `s362415` | Assigned |
+| T-SEQ-02 | Sequential GCN normalized aggregation | `s362415` | Scheduled |
 | T-SEQ-04 (GCN) | Sequential GCN layer execution | `s362415` | Scheduled |
 | T-SEQ-03 | Sequential GraphSAGE weighted non-self mean | `s296248` | Assigned |
 | T-SEQ-04 (GraphSAGE) | Sequential GraphSAGE layer execution | `s296248` | Scheduled |
@@ -114,7 +114,7 @@ incomplete; `Assigned` means implementation has not started.
 | T-VER-01, T-VER-04/T-VER-06 (GCN) | GCN fixtures and native/framework backend verification | `s362415` | Assigned |
 | T-VER-02, T-VER-04/T-VER-06 (GraphSAGE) | GraphSAGE fixtures and native/framework backend verification | `s296248` | Assigned |
 | T-OMPV-03, T-OMPV-05 | Common OpenMP dense/elementwise operations and workspace | `s360540` | Scheduled |
-| T-OMPV-01, T-OMPV-04 (GCN) | Destination-owned OpenMP GCN and its configurations | `s362415` | Assigned |
+| T-OMPV-01, T-OMPV-04 (GCN) | Destination-owned OpenMP GCN and its configurations | `s362415` | Scheduled |
 | T-OMPV-02, T-OMPV-04 (GraphSAGE) | Destination-owned OpenMP GraphSAGE and its configurations | `s296248` | Assigned |
 | T-OMPE-01–T-OMPE-05 | Conditional additional OpenMP mapping | `s296248` | Assigned |
 | T-CUDA-01–T-CUDA-04, T-CUDAV-03 | CUDA ownership/runtime and common CUDA operations | `s360540` | Assigned |
@@ -122,7 +122,7 @@ incomplete; `Assigned` means implementation has not started.
 | T-CUDAV-02, T-CUDAV-04 (GraphSAGE) | CUDA GraphSAGE aggregation and launch configurations | `s296248` | Assigned |
 | T-CUDAA-01–T-CUDAA-04 | Conditional additional CUDA mapping | `s296248` | Assigned |
 | T-EXP-01–T-EXP-03 | Shared-memory and sparse/dense studies | `s296248` | Assigned |
-| T-DATA-02, T-DATA-04/T-DATA-05 (GCN) | Synthetic workload ranges and GCN parameters/counts | `s362415` | Assigned |
+| T-DATA-02, T-DATA-04/T-DATA-05 (GCN) | Synthetic workload ranges and GCN parameters/counts | `s362415` | Scheduled |
 | T-DATA-04/T-DATA-05 (GraphSAGE) | GraphSAGE parameters/counts | `s296248` | Assigned |
 | T-FRM-01, T-FRM-02, T-FRM-05 | Shared external-framework adapter and measurement boundaries | `s360540` | Assigned |
 | T-FRM-03, T-FRM-06 (GCN) | GCN framework mapping and comparison | `s362415` | Assigned |

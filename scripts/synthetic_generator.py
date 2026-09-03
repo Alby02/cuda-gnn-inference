@@ -1,22 +1,32 @@
 import argparse #read from command line
 import os #output directory creation
-import struct
-import numpy as np
-import scipy.sparse as sp #for CSC
-import networkit as nk #for graph generation
 from export_graph_csc import export_graph_csc #for I/O
 from export_dense_matrix import export_dense_matrix
 
 
 
 
-def graph_to_csc(g: "nk.Graph", num_nodes: int, is_directed: bool) -> sp.csc_matrix:
+def _load_dependencies():
+    try:
+        import networkit as nk
+        import numpy as np
+        import scipy.sparse as sp
+    except ModuleNotFoundError as error:
+        raise RuntimeError(
+            f"missing Python dependency '{error.name}'; "
+            "run 'uv sync' to install the project environment"
+        ) from error
+    return nk, np, sp
+
+
+def graph_to_csc(g, num_nodes: int, is_directed: bool):
      ## convertion from Networkit Graph to CSC matrix format
 
      ## alternative much more efficient than nk.algebraic.adjacencyMatrix(): it iterates over the
      # edges (g.iterEdges()), print out (u, v) and it leaves to scipy the job to build the CSC, reducing overhead
 
 
+    _, np, sp = _load_dependencies()
     num_edges = g.numberOfEdges()
 
     # Allocation of source and destination array
@@ -52,6 +62,8 @@ def generate_synthetic_graph(
 ):
 
     ## generation of graph topology and feature nodes matrix and export to dense matrix and graph csc format
+
+    nk, np, _ = _load_dependencies()
 
 
     nk.setSeed(seed, False) #setting the seed for reproducibility
@@ -120,20 +132,23 @@ if __name__ == "__main__": #launch from command line
     parser.add_argument("--directed", action="store_true", help="Creates an oriented graph")
     parser.add_argument("--seed", type=int, default=42, help="Reproducibility seed")
 
-    parser.add_argument("--m", type=int, default=5, help="Parameter m for Barabási-Albert")
-    parser.add_argument("--p", type=float, default=0.001, help="Probability parameter p for Erdős-Rényi/Watts-Strogatz")
-    parser.add_argument("--k", type=int, default=6, help="Paramter k for Watts-Strogatz")
+    parser.add_argument("--m", type=int, default=5, help="Parameter m for Barabasi-Albert")
+    parser.add_argument("--p", type=float, default=0.001, help="Probability parameter p for Erdos-Renyi/Watts-Strogatz")
+    parser.add_argument("--k", type=int, default=6, help="Parameter k for Watts-Strogatz")
 
     args = parser.parse_args()
 
-    generate_synthetic_graph(
-        graph_type=args.type,
-        num_nodes=args.nodes,
-        feature_dim=args.feature_dim,
-        out_prefix=args.out_prefix,
-        is_directed=args.directed,
-        seed=args.seed,
-        m=args.m,
-        p=args.p,
-        k=args.k
-    )
+    try:
+        generate_synthetic_graph(
+            graph_type=args.type,
+            num_nodes=args.nodes,
+            feature_dim=args.feature_dim,
+            out_prefix=args.out_prefix,
+            is_directed=args.directed,
+            seed=args.seed,
+            m=args.m,
+            p=args.p,
+            k=args.k
+        )
+    except RuntimeError as error:
+        parser.exit(1, f"synthetic_generator: {error}\n")

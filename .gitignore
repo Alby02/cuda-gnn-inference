@@ -1,3 +1,7 @@
 .vscode
 .idea
 synth_data/
+dataset_out/
+.venv/
+__pycache__/
+*.py[cod]

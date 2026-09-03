@@ -1,5 +1,10 @@
-import numpy as np
+from __future__ import annotations
+
 import struct
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import numpy as np
 
 def export_graph_csc(
     filename: str,
@@ -14,6 +19,8 @@ def export_graph_csc(
 
     Node and edge features are exported separately with export_dense_matrix().
     """
+    import numpy as np
+
     #implementation of boolean flag to check whether features and weights are present
     num_edges = len(row_ind)
     has_weights = int(weights is not None and len(weights) > 0)

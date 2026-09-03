@@ -1,11 +1,9 @@
 import argparse
 import os
-import numpy as np
-import scipy.sparse as sp
-from export_graph_csc import export_graph_csc
-from export_dense_matrix import export_dense_matrix
 
-#OPTIONAL
+from export_dense_matrix import export_dense_matrix
+from export_graph_csc import export_graph_csc
+
 from export_split_indices import export_split_indices
 
 
@@ -15,13 +13,15 @@ def convert_pyg_dataset(dataset_name: str, out_dir: str):
     # they are citation networks, they are treated as undirected so is_directed=False
 
 
-    #import of torch and Planetoid only if I use this dataset and this mode
     try:
-        import torch
+        import numpy as np
+        import scipy.sparse as sp
         from torch_geometric.datasets import Planetoid
-    except ImportError:
-        print("[-] PyTorch Geometric not installed.")
-        return
+    except ModuleNotFoundError as error:
+        raise RuntimeError(
+            f"missing Python dependency '{error.name}'; "
+            "run 'uv sync' to install the project environment"
+        ) from error
 
     os.makedirs(out_dir, exist_ok=True) #creation of output directory
     dataset = Planetoid(root=f"/tmp/{dataset_name}", name=dataset_name) #download Planetoid dataset
@@ -76,10 +76,14 @@ def convert_ogb_dataset(dataset_name: str, out_dir: str):
 # (for example: ogbn-arxiv is a directed citation graph)
 
     try:
+        import numpy as np
+        import scipy.sparse as sp
         from ogb.nodeproppred import NodePropPredDataset
-    except ImportError:
-        print("[-] 'ogb' library not installed.")
-        return
+    except ModuleNotFoundError as error:
+        raise RuntimeError(
+            f"missing Python dependency '{error.name}'; "
+            "run 'uv sync' to install the project environment"
+        ) from error
 
     os.makedirs(out_dir, exist_ok=True)
     dataset = NodePropPredDataset(name=dataset_name, root=os.path.join(out_dir, "ogb_raw")) #download ogb dataset
@@ -138,7 +142,10 @@ if __name__ == "__main__": #executed if launched from command line
 
     args = parser.parse_args() #read and get arguments from command line
 
-    if args.mode == "pyg":
-        convert_pyg_dataset(args.input, args.out_prefix)
-    elif args.mode == "ogb":
-        convert_ogb_dataset(args.input, args.out_prefix)
+    try:
+        if args.mode == "pyg":
+            convert_pyg_dataset(args.input, args.out_prefix)
+        elif args.mode == "ogb":
+            convert_ogb_dataset(args.input, args.out_prefix)
+    except RuntimeError as error:
+        parser.exit(1, f"converter: {error}\n")

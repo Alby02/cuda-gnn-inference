@@ -9,17 +9,19 @@
 #include <utility>
 #include <vector>
 
-#include "graph_csc.hpp"
+#include "../host_graph.hpp"
 
 namespace graph {
 
 class GraphFactory {
 public:
-    static GraphCSC make(bool isDirected, std::uint64_t numNodes, std::uint64_t numEntries,
-                         std::vector<std::uint64_t> colPtr, std::vector<std::uint64_t> rowInd,
-                         std::vector<float> weights = {}) {
+    static HostGraphCSC make(bool isDirected, std::uint64_t numNodes, std::uint64_t numEntries,
+                             std::vector<std::uint64_t> colPtr, std::vector<std::uint64_t> rowInd,
+                             std::vector<float> weights = {}) {
         validate(isDirected, numNodes, numEntries, colPtr, rowInd, weights);
-        return GraphCSC(isDirected, std::move(colPtr), std::move(rowInd), std::move(weights));
+        return HostGraphCSC(isDirected, gnn::vectorToHostBuffer(std::move(colPtr)),
+                            gnn::vectorToHostBuffer(std::move(rowInd)),
+                            gnn::vectorToHostBuffer(std::move(weights)));
     }
 
 private:

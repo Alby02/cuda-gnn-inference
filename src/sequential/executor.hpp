@@ -12,10 +12,11 @@ class SequentialExecutor {
 public:
     using WorkspaceType = CpuContext;
     using BufferType = WorkspaceType::BufferType;
+    using WeightType = Matrix<HostBuffer<float>>;
 
     void rowByColumn(const BufferType& left, const BufferType& right, BufferType& output) {
         validateProduct(left, right);
-        output.resize(left.rows(), right.cols());
+        output.setShape(left.rows(), right.cols());
 
         for (std::size_t row = 0; row < left.rows(); ++row) {
             for (std::size_t column = 0; column < right.cols(); ++column) {

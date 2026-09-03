@@ -12,10 +12,11 @@ class ParallelExecutor {
 public:
     using WorkspaceType = CpuContext;
     using BufferType = WorkspaceType::BufferType;
+    using WeightType = Matrix<HostBuffer<float>>;
 
     void rowByColumn(const BufferType& left, const BufferType& right, BufferType& output) {
         validateProduct(left, right);
-        output.resize(left.rows(), right.cols());
+        output.setShape(left.rows(), right.cols());
 
 #pragma omp parallel for collapse(2) schedule(static)
         for (std::size_t row = 0; row < left.rows(); ++row) {

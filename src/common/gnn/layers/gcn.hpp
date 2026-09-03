@@ -1,49 +1,55 @@
 #pragma once
 
-#include <span>
-#include <stdexcept>
-#include <vector>
-
-#include "../../data/graph_csc.hpp"
+#include "../../data/buffer.hpp"
 #include "../../data/matrix.hpp"
 #include "../../execution/executor.hpp"
 
+#include <stdexcept>
+#include <utility>
+
 namespace gnn::layers {
 
-class GCN {
-public:
-    enum class ActivationType { NONE, RELU };
+enum class GCNActivationType { NONE, RELU };
 
-    GCN(Matrix<float> W_neigh, std::vector<float> bias = {},
-        ActivationType act_type = ActivationType::NONE)
-        : W_neigh_(std::move(W_neigh)), bias_(std::move(bias)), act_type_(act_type) {
-        if (W_neigh_.empty()) {
+template <typename WeightMatrix, typename BiasStorage>
+    requires Buffer<BiasStorage>
+class GCNLayer {
+public:
+    using ActivationType = GCNActivationType;
+    using WeightType = WeightMatrix;
+    using BiasType = BiasStorage;
+
+    GCNLayer(WeightMatrix neighborWeights, BiasStorage bias = BiasStorage{0},
+             ActivationType activation = ActivationType::NONE)
+        : neighborWeights_(std::move(neighborWeights)), bias_(std::move(bias)),
+          activation_(activation) {
+        validate();
+    }
+
+    [[nodiscard]] std::size_t getInDim() const noexcept { return neighborWeights_.rows(); }
+    [[nodiscard]] std::size_t getOutDim() const noexcept { return neighborWeights_.cols(); }
+    [[nodiscard]] ActivationType getActType() const noexcept { return activation_; }
+    [[nodiscard]] const WeightMatrix& getWNeigh() const noexcept { return neighborWeights_; }
+    [[nodiscard]] bool hasBias() const noexcept { return bias_.logicalSize() != 0; }
+    [[nodiscard]] const BiasStorage& getBias() const noexcept { return bias_; }
+
+private:
+    void validate() const {
+        if (neighborWeights_.empty()) {
             throw std::invalid_argument("W_neigh cannot be empty");
         }
-        in_dim_ = W_neigh_.rows();
-        out_dim_ = W_neigh_.cols();
-        if (!bias_.empty() && bias_.size() != out_dim_) {
+        if (hasBias() && bias_.logicalSize() != getOutDim()) {
             throw std::invalid_argument("bias dimension must match out_dim");
         }
     }
 
-    [[nodiscard]] std::size_t getInDim() const noexcept { return in_dim_; }
-    [[nodiscard]] std::size_t getOutDim() const noexcept { return out_dim_; }
-    [[nodiscard]] ActivationType getActType() const noexcept { return act_type_; }
-    [[nodiscard]] const Matrix<float>& getWNeigh() const noexcept { return W_neigh_; }
-    [[nodiscard]] bool hasBias() const noexcept { return !bias_.empty(); }
-    [[nodiscard]] std::span<const float> getBias() const noexcept { return bias_; }
-
-private:
-    Matrix<float> W_neigh_;
-    std::vector<float> bias_;
-    ActivationType act_type_{ActivationType::NONE};
-    std::size_t in_dim_{0};
-    std::size_t out_dim_{0};
+    WeightMatrix neighborWeights_;
+    BiasStorage bias_;
+    ActivationType activation_{ActivationType::NONE};
 };
 
-template <Executor E>
-void forward_layer(const GCN& layer, const graph::GraphCSC&, E& executor,
+template <Executor E, typename WeightMatrix, typename BiasStorage, typename Graph>
+void forward_layer(const GCNLayer<WeightMatrix, BiasStorage>& layer, const Graph&, E& executor,
                    typename E::WorkspaceType& workspace) {
     executor.rowByColumn(workspace.current(), layer.getWNeigh(), workspace.next());
 }

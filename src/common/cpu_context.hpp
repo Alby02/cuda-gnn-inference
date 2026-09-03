@@ -2,20 +2,26 @@
 
 #include "data/matrix.hpp"
 #include "execution/workspace.hpp"
+#include "host_buffer.hpp"
 
+#include <algorithm>
+#include <cstddef>
 #include <stdexcept>
-#include <utility>
 
 namespace gnn {
 
 class CpuContext {
 public:
-    using BufferType = Matrix<float>;
+    using BufferType = Matrix<HostBuffer<float>>;
 
-    explicit CpuContext(BufferType input) : current_(std::move(input)) {
-        if (current_.empty()) {
+    CpuContext(BufferType input, std::size_t physicalColumns)
+        : current_(input.rows(), physicalColumns), next_(input.rows(), physicalColumns) {
+        if (input.empty()) {
             throw std::invalid_argument("CPU context input cannot be empty.");
         }
+        std::copy_n(input.data(), input.size(), current_.data());
+        current_.setShape(input.rows(), input.cols());
+        next_.setShape(input.rows(), 0);
     }
 
     [[nodiscard]] BufferType& current() noexcept { return current_; }

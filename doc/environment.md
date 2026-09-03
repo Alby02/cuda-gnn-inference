@@ -64,33 +64,28 @@ wsl --install -d Ubuntu
 ---
 ## 4. Python Dependencies for Scripts Folder (F2.1 / F2.2)
 
-The dataset converter (`scripts/converter.py`) and the synthetic graph generator
-(`scripts/synthetic_generator.py`) require a small set of Python packages, listed in
-`python_libraries.txt` at the repository root.
+The dataset converter (`scripts/converter.py`) and synthetic graph generator
+(`scripts/synthetic_generator.py`) use a repository-local virtual environment managed by
+[uv](https://docs.astral.sh/uv/). Create or synchronize `.venv` from `pyproject.toml` and
+`uv.lock` with:
 
-Install them with:
 ```bash
-pip install -r python_libraries.txt
+uv sync
+```
+
+Run the tools through that managed environment:
+
+```bash
+uv run python scripts/synthetic_generator.py --help
+uv run python scripts/converter.py --help
 ```
 
 ### Note on NetworKit
+
 The synthetic generator uses [NetworKit](https://networkit.github.io/) to scale graph
-generation up to millions of nodes. Unlike most packages in `python_libraries.txt`,
-**NetworKit is not a pure-Python package**: `pip install` compiles native C++ extensions
-locally, using OpenMP for parallel generation. This means:
-
-- **Linux native / WSL / Google Colab**: works out of the box, since a C++ compiler
-  (`g++`) is already required and installed for the CUDA/OpenMP parts of this project.
-  The first `pip install networkit` will take noticeably longer than a typical
-  pure-Python package (compilation time), but requires no extra setup.
-- **Windows (MSYS2/UCRT64)**: make sure you run `pip install -r python_libraries.txt` from
-  inside the **MSYS2 UCRT64** terminal described in Section 1, after installing the
-  `mingw-w64-ucrt-x86_64-toolchain` package, so that a compatible C++ compiler and
-  OpenMP are available on the `PATH`. Installing from a plain Windows PowerShell/CMD
-  without that toolchain will fail.
-
-If `pip install networkit` fails, check that a C++ compiler is discoverable on your
-`PATH` (`g++ --version` or `clang++ --version`).
+generation up to millions of nodes. `uv` normally installs a compatible binary wheel in `.venv`
+without modifying the system Python environment. If NetworKit must be built from source, check
+that a C++ compiler is discoverable on `PATH` (`g++ --version` or `clang++ --version`).
 
 ---
 

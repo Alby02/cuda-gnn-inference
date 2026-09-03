@@ -1,10 +1,17 @@
+from __future__ import annotations
+
 import struct
-import numpy as np
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import numpy as np
 
 def export_dense_matrix(filename: str, matrix: np.ndarray):
     """
     Export execution data such as node features, edge features, or weights as a Matrix<float>.
     """
+    import numpy as np
+
     matrix = np.asarray(matrix, dtype=np.float32) #I need float32 in order to be compatible with DenseMatrix
     rows, cols = matrix.shape
 

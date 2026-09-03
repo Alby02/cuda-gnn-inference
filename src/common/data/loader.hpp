@@ -27,7 +27,7 @@ static_assert(sizeof(GraphHeader) == 18, "GraphHeader must match Python '<QQBB' 
 
 class GraphLoader {
 public:
-    static GraphCSC load(const std::string& filepath) {
+    static HostGraphCSC load(const std::string& filepath) {
         auto raw = readBinaryGraph(filepath);
         try {
             return GraphFactory::make(raw.header.isDirected != 0, raw.header.numNodes,
@@ -40,7 +40,7 @@ public:
     }
 
     // Node and edge features are execution data stored as independent dense matrices.
-    static gnn::Matrix<float> loadDenseMatrix(const std::string& filepath) {
+    static gnn::Matrix<gnn::HostBuffer<float>> loadDenseMatrix(const std::string& filepath) {
         std::ifstream file(filepath, std::ios::binary);
         if (!file.is_open()) {
             throw std::runtime_error("GraphLoader: could not open matrix file '" + filepath + "'");
@@ -52,12 +52,11 @@ public:
         readExact(file, &cols, 1, filepath, "matrix column count");
         const auto elementCount = checkedProduct(rows, cols, filepath, "matrix shape");
 
-        std::vector<float> data(elementCount);
-        readExact(file, data.data(), data.size(), filepath, "matrix values");
+        gnn::Matrix<gnn::HostBuffer<float>> matrix{checkedSize(rows, filepath, "matrix rows"),
+                                                   checkedSize(cols, filepath, "matrix columns")};
+        readExact(file, matrix.data(), elementCount, filepath, "matrix values");
         rejectTrailingBytes(file, filepath);
-
-        return gnn::Matrix<float>(checkedSize(rows, filepath, "matrix rows"),
-                                  checkedSize(cols, filepath, "matrix columns"), std::move(data));
+        return matrix;
     }
 
 private:

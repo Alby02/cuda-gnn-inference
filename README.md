@@ -93,15 +93,17 @@ incomplete; `Assigned` means implementation has not started.
 
 | Task ID(s) | Task | Student ID | Status |
 | :--- | :--- | :---: | :---: |
-| T-CON-01 | Directed/undirected canonical CSC graph representation and orientation enum | `s360540` | Completed — pending merge |
+| T-CON-01 | Directed/undirected canonical CSC graph representation and orientation enum | `s360540` | Completed |
 | T-CON-03–T-CON-04 | GCN/GraphSAGE layer descriptors and generic model definition | `s360540` | Completed |
 | T-IO-02 | Canonical graph loader and orientation validation | `s362415` | Completed |
 | T-DATA-01 | Reproducible synthetic graph generator | `s362415` | Completed |
 | T-DATA-03 | Public dataset preparation | `s362415` | Completed |
-| T-CON-02, T-CON-06–T-CON-08 | Matrix/views, executor contracts, workspaces, and dispatch | `s360540` | Scheduled |
+| T-CON-02 | Storage-generic buffers, matrices, graphs, and CUDA kernel views | `s360540` | Scheduled |
+| T-CON-06–T-CON-08 | Executor contracts, reusable workspaces, and outer backend dispatch | `s360540` | Scheduled |
 | T-CON-05 (GCN) | GCN degree and self-message semantic preparation | `s362415` | Completed — pending merge |
 | T-CON-05 (GraphSAGE) | GraphSAGE neighbor-total semantic preparation | `s296248` | Assigned |
-| T-IO-01, T-IO-03, T-IO-05 | Bundle, feature/model/parameter loading, and result schema | `s360540` | Assigned |
+| T-IO-01, T-IO-05 | Versioned workload bundle and machine-readable result schema | `s360540` | Assigned |
+| T-IO-03 | Feature, model, layer, and parameter loading | `s362415s` | Completed |
 | T-IO-04, T-IO-06 | CLI configuration and unsupported-composition validation | `s360540` | Scheduled |
 | T-SEQ-01 | Shared sequential dense, bias, activation, and branch-combination primitives | `s360540` | Scheduled |
 | T-SEQ-05 | Generic model execution with layer iteration and ping-pong buffers | `s360540` | Completed |
@@ -117,7 +119,7 @@ incomplete; `Assigned` means implementation has not started.
 | T-OMPV-01, T-OMPV-04 (GCN) | Destination-owned OpenMP GCN and its configurations | `s362415` | Scheduled |
 | T-OMPV-02, T-OMPV-04 (GraphSAGE) | Destination-owned OpenMP GraphSAGE and its configurations | `s296248` | Assigned |
 | T-OMPE-01–T-OMPE-05 | Conditional additional OpenMP mapping | `s296248` | Assigned |
-| T-CUDA-01–T-CUDA-04, T-CUDAV-03 | CUDA ownership/runtime and common CUDA operations | `s360540` | Assigned |
+| T-CUDA-01–T-CUDA-04, T-CUDAV-03 | CUDA ownership/runtime and common CUDA operations | `s360540` | Scheduled |
 | T-CUDAV-01, T-CUDAV-04 (GCN) | CUDA GCN aggregation and launch configurations | `s362415` | Assigned |
 | T-CUDAV-02, T-CUDAV-04 (GraphSAGE) | CUDA GraphSAGE aggregation and launch configurations | `s296248` | Assigned |
 | T-CUDAA-01–T-CUDAA-04 | Conditional additional CUDA mapping | `s296248` | Assigned |
@@ -150,6 +152,9 @@ Detailed acceptance criteria for every task are in [doc/features.md](doc/feature
 ### Quick Start
 
 ```bash
+# 0. Create the Python tooling environment
+uv sync
+
 # 1. Configure build directory
 meson setup builddir
 
@@ -165,6 +170,20 @@ ninja -C builddir clang-tidy
 ./builddir/gnn parallel
 ./builddir/gnn cuda
 ```
+
+To run the current demo with generated or downloaded data, pass the graph and node-feature
+files produced by the scripts:
+
+```bash
+./builddir/gnn sequential synth_data/graph.bin_graph synth_data/graph_feats.bin_matrix
+./builddir/gnn parallel synth_data/graph.bin_graph synth_data/graph_feats.bin_matrix
+./builddir/gnn cuda synth_data/graph.bin_graph synth_data/graph_feats.bin_matrix
+```
+
+The loader validates the CSC topology and checks that the feature row count matches the number of
+nodes. Since trained model-parameter import is not implemented yet, this path creates a one-layer
+projection model matching the loaded feature width and prints a preview of its output. Node and edge
+features remain separate execution matrices rather than members of the graph object.
 
 The `clang-format` and `clang-tidy` targets are generated automatically by
 Meson when the corresponding tools and project configuration files are

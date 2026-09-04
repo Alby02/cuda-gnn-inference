@@ -30,6 +30,15 @@ public:
         }
     }
 
+    void aggregateNeighbors(const auto& graph, const BufferType& in_features,
+                            BufferType& out_aggregated, auto agg_type,
+                        const int layer_num, const int * sample[]) {
+        const std::size_t num_nodes = graph.getNumNodes();
+        const std::size_t feat_dim = in_features.cols();
+
+        out_aggregated = BufferType(num_nodes, feat_dim);
+    }
+
 private:
     static void validateProduct(const BufferType& left, const BufferType& right) {
         if (left.cols() != right.rows()) {

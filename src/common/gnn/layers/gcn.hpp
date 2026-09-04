@@ -3,7 +3,9 @@
 #include "../../data/buffer.hpp"
 #include "../../data/matrix.hpp"
 #include "../../execution/executor.hpp"
+#include "gcn_aggregation.hpp" 
 
+#include <cstdeef>
 #include <stdexcept>
 #include <utility>
 
@@ -48,10 +50,32 @@ private:
     ActivationType activation_{ActivationType::NONE};
 };
 
+namespace detail {
+
+template <typename MatrixT, typename BiasStorage>
+void applyBiasAndActivation(MatrixT& output, const BiasStorage& bias, bool hasBias,
+                            GCNActivationType activation) {
+    for (std::size_t row = 0; row < output.rows(); ++row) {
+        for (std::size_t col = 0; col < output.cols(); ++col) {
+            float value = output(row, col);
+            if (hasBias) {
+                value += bias.data()[col];
+            }
+            if (activation == GCNActivationType::RELU) {
+                value = value > 0.0F ? value : 0.0F;
+            }
+            output(row, col) = value;
+        }
+    }
+}
+}
+
 template <Executor E, typename WeightMatrix, typename BiasStorage, typename Graph>
 void forward_layer(const GCNLayer<WeightMatrix, BiasStorage>& layer, const Graph&, E& executor,
                    typename E::WorkspaceType& workspace) {
+    const auto& aggregated = executor.gcnState().aggregate(graph, workspace.current());
     executor.rowByColumn(workspace.current(), layer.getWNeigh(), workspace.next());
+    detail::applyBiasAndActivation(workspace.next(), layer.getBias(), layer.hasBias(), layer.getActType());
 }
 
-} // namespace gnn::layers
+} // 

@@ -19,19 +19,29 @@ public:
     using WeightType = WeightMatrix;
     using BiasType = BiasStorage;
 
-    GCNLayer(WeightMatrix neighborWeights, BiasStorage bias = BiasStorage{0},
+    GCNLayer(WeightMatrix neighborWeights, BiasStorage bias = BiasStorage{},
              ActivationType activation = ActivationType::NONE)
         : neighborWeights_(std::move(neighborWeights)), bias_(std::move(bias)),
           activation_(activation) {
         validate();
     }
 
-    [[nodiscard]] std::size_t getInDim() const noexcept { return neighborWeights_.rows(); }
-    [[nodiscard]] std::size_t getOutDim() const noexcept { return neighborWeights_.cols(); }
-    [[nodiscard]] ActivationType getActType() const noexcept { return activation_; }
-    [[nodiscard]] const WeightMatrix& getWNeigh() const noexcept { return neighborWeights_; }
-    [[nodiscard]] bool hasBias() const noexcept { return bias_.logicalSize() != 0; }
-    [[nodiscard]] const BiasStorage& getBias() const noexcept { return bias_; }
+    [[nodiscard]] GNN_HOST_DEVICE std::size_t getInDim() const noexcept {
+        return neighborWeights_.rows();
+    }
+    [[nodiscard]] GNN_HOST_DEVICE std::size_t getOutDim() const noexcept {
+        return neighborWeights_.cols();
+    }
+    [[nodiscard]] GNN_HOST_DEVICE ActivationType getActType() const noexcept {
+        return activation_;
+    }
+    [[nodiscard]] GNN_HOST_DEVICE const WeightMatrix& getWNeigh() const noexcept {
+        return neighborWeights_;
+    }
+    [[nodiscard]] GNN_HOST_DEVICE bool hasBias() const noexcept {
+        return bias_.logicalSize() != 0;
+    }
+    [[nodiscard]] GNN_HOST_DEVICE const BiasStorage& getBias() const noexcept { return bias_; }
 
 private:
     void validate() const {

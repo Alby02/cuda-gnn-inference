@@ -25,13 +25,21 @@ public:
                                  BufferType input) {
         validate(graph, model, input);
         WorkspaceType workspace{std::move(input), maximumFeatureWidth(model)};
+        return std::move(executeModel(graph, model, workspace));
+    }
+
+    template <typename Graph, Layer... Layers>
+    [[nodiscard]] BufferType run(const Graph& graph, const Model<Layers...>& model,
+                                 const BufferType& input, WorkspaceType& workspace) {
+        validate(graph, model, input);
+        workspace.prepare(input, maximumFeatureWidth(model));
         return executeModel(graph, model, workspace);
     }
 
 private:
     template <typename Graph, Layer... Layers>
-    [[nodiscard]] BufferType executeModel(const Graph& graph, const Model<Layers...>& model,
-                                          WorkspaceType& workspace) {
+    [[nodiscard]] BufferType& executeModel(const Graph& graph, const Model<Layers...>& model,
+                                           WorkspaceType& workspace) {
         for (const auto& layer : model.getLayers()) {
             std::visit(
                 [&](const auto& concreteLayer) {
@@ -42,7 +50,7 @@ private:
             workspace.swapBuffers();
         }
 
-        return std::move(workspace.current());
+        return workspace.current();
     }
 
     template <typename Graph, Layer... Layers>

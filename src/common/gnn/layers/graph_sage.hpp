@@ -21,8 +21,8 @@ public:
     using WeightType = WeightMatrix;
     using BiasType = BiasStorage;
 
-    GraphSAGELayer(WeightMatrix neighborWeights, WeightMatrix selfWeights = WeightMatrix{0, 0},
-                   BiasStorage bias = BiasStorage{0},
+    GraphSAGELayer(WeightMatrix neighborWeights, WeightMatrix selfWeights = WeightMatrix{},
+                   BiasStorage bias = BiasStorage{},
                    AggregationType aggregation = AggregationType::MEAN,
                    ActivationType activation = ActivationType::NONE)
         : neighborWeights_(std::move(neighborWeights)), selfWeights_(std::move(selfWeights)),
@@ -30,16 +30,32 @@ public:
         validate();
     }
 
-    [[nodiscard]] std::size_t getInDim() const noexcept { return neighborWeights_.rows(); }
-    [[nodiscard]] std::size_t getOutDim() const noexcept { return neighborWeights_.cols(); }
-    [[nodiscard]] AggregationType getAggType() const noexcept { return aggregation_; }
-    [[nodiscard]] ActivationType getActType() const noexcept { return activation_; }
-    [[nodiscard]] const WeightMatrix& getWNeigh() const noexcept { return neighborWeights_; }
-    [[nodiscard]] bool hasWSelf() const noexcept { return !selfWeights_.empty(); }
-    [[nodiscard]] const WeightMatrix& getWSelf() const noexcept { return selfWeights_; }
-    [[nodiscard]] bool hasBias() const noexcept { return bias_.logicalSize() != 0; }
-    [[nodiscard]] const BiasStorage& getBias() const noexcept { return bias_; }
-    [[nodiscard]] bool requiresEdgeFeatures() const noexcept { return false; }
+    [[nodiscard]] GNN_HOST_DEVICE std::size_t getInDim() const noexcept {
+        return neighborWeights_.rows();
+    }
+    [[nodiscard]] GNN_HOST_DEVICE std::size_t getOutDim() const noexcept {
+        return neighborWeights_.cols();
+    }
+    [[nodiscard]] GNN_HOST_DEVICE AggregationType getAggType() const noexcept {
+        return aggregation_;
+    }
+    [[nodiscard]] GNN_HOST_DEVICE ActivationType getActType() const noexcept {
+        return activation_;
+    }
+    [[nodiscard]] GNN_HOST_DEVICE const WeightMatrix& getWNeigh() const noexcept {
+        return neighborWeights_;
+    }
+    [[nodiscard]] GNN_HOST_DEVICE bool hasWSelf() const noexcept {
+        return !selfWeights_.empty();
+    }
+    [[nodiscard]] GNN_HOST_DEVICE const WeightMatrix& getWSelf() const noexcept {
+        return selfWeights_;
+    }
+    [[nodiscard]] GNN_HOST_DEVICE bool hasBias() const noexcept {
+        return bias_.logicalSize() != 0;
+    }
+    [[nodiscard]] GNN_HOST_DEVICE const BiasStorage& getBias() const noexcept { return bias_; }
+    [[nodiscard]] GNN_HOST_DEVICE bool requiresEdgeFeatures() const noexcept { return false; }
 
 private:
     void validate() const {

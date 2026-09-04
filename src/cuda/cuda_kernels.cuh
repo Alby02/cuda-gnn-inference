@@ -1,4 +1,13 @@
 #pragma once
 
-__global__ void hello_from_gpu();
+#include "data/matrix.hpp"
+#include "device_buffer.cuh"
 
+#include <cstddef>
+
+namespace gnn::cuda {
+
+void launchRowByColumn(Matrix<DeviceBuffer<float>> left, Matrix<DeviceBuffer<float>> right,
+                       Matrix<DeviceBuffer<float>> output);
+
+} // namespace gnn::cuda

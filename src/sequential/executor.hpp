@@ -3,7 +3,7 @@
 #include "cpu_context.hpp"
 #include "data/graph_csc.hpp"
 #include "execution/executor.hpp"
-#include "../gnn/layers/gcn_semantics.hpp"
+#include "../gnn/layers/gcn_aggregation.hpp"
 
 #include <cstddef>
 #include <omp.h>

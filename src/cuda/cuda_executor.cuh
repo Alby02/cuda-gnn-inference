@@ -1,5 +1,6 @@
 #pragma once
 
+#include "cuda_gcn_aggregation.cuh"
 #include "cuda_kernels.cuh"
 #include "cuda_workspace.cuh"
 #include "data/matrix.hpp"
@@ -27,6 +28,10 @@ public:
         cuda::launchRowByColumn(left, right, output);
         checkCuda(cudaDeviceSynchronize(), "CUDA matrix multiplication");
     }
+    [[nodiscard]] layers::CudaGCNAggregationState& gcnState() noexcept { return gcnState_; }
+
+private:
+    layers::CudaGCNAggregationState gcnState_;
 };
 
 static_assert(Executor<CudaExecutor>);

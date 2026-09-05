@@ -132,7 +132,7 @@ Only the vertex-centric mapping is implemented on the GCN side; edge-centric is 
 
 ## 5. References
 
-*   Kipf, T. N., & Welling, M. (2017). *Semi-Supervised Classification with Graph Convolutional Networks*. ICLR.
-*   
+*   Alvaro Sanchez-Gonzalez, Nicolas Heess, Jost Tobias Springenberg, Josh Merel, Martin Riedmiller, Raia Hadsell, Peter Battaglia, *Graph Networks as Learnable Physics Engines for Inference and Control*, Proceedings
+*   Jie Zhou, Ganqu Cui, Shengding Hu, Zhengyan Zhang, Cheng Yang, Zhiyuan Liu, Lifeng Wang, Changcheng Li, Maosong Sun (2020), *Graph neural networks: A review of methods and applications*, AI Open, Volume 1,  ages 57-81,
 *   Open Graph Benchmark: [https://ogb.stanford.edu](https://ogb.stanford.edu)
 *   Project internal specs: `doc/architecture.md`, `doc/semantics.md`, `doc/knowledge.md`, `doc/requirements.md`.

@@ -71,7 +71,7 @@ void applyBiasAndActivation(MatrixT& output, const BiasStorage& bias, bool hasBi
 }
 
 template <Executor E, typename WeightMatrix, typename BiasStorage, typename Graph>
-void forward_layer(const GCNLayer<WeightMatrix, BiasStorage>& layer, const Graph&, E& executor,
+void forward_layer(const GCNLayer<WeightMatrix, BiasStorage>& layer, const Graph& graph, E& executor,
                    typename E::WorkspaceType& workspace) {
     const auto& aggregated = executor.gcnState().aggregate(graph, workspace.current());
     executor.rowByColumn(workspace.current(), layer.getWNeigh(), workspace.next());

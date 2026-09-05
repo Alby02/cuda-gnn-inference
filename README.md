@@ -140,8 +140,98 @@ while configuring the build.
 For detailed cross-platform environment setup (including Windows MSYS2 UCRT64 and Google Colab workflows), see [doc/environment.md](doc/environment.md).
 
 ---
+## 4. Execution parameters
 
-## 4. Three-Person Workload Division
+Usage (exact as implemented in src/common/main.cpp):
+
+```
+Usage: ./gnn <mode> [graph.bin_graph features.bin_matrix]
+```
+
+mode (positional, required)
+
+- `sequential` — Single-threaded CPU run  
+- `parallel` — Multi-threaded CPU (OpenMP) — only available if OpenMP was found at build time  
+- `cuda` — CUDA GPU run — only available if CUDA (nvcc) was found at build time
+
+`graph.bin_graph` (optional positional)
+
+Path to a single binary graph file in the repository's custom `.bin_graph` format.  
+If omitted, the built-in demo graph is used.
+
+`features.bin_matrix` (optional positional)
+
+Path to a single binary dense matrix file for node features in the custom `.bin_matrix` format.  
+If omitted, the built-in demo feature matrix is used.
+
+**Runtime behaviour to take into account**:
+
+- If both graph and feature paths are provided, the program attempts to load them. If the loaded feature matrix row count does not match the graph node count, execution aborts with an error.  
+- The program prints a small result matrix (demo / loaded-data output) to stdout.
+
+Environment variables that affect execution:
+
+- `OMP_NUM_THREADS` — controls CPU-thread count for OpenMP (useful for `parallel` mode).  
+- `CUDA_VISIBLE_DEVICES` — controls which GPUs are visible to the process (useful for `cuda` mode).
+
+Examples:
+
+- Run built-in demo (no data paths):
+```
+./build/gnn sequential
+```
+
+- Run with custom data:
+```
+./build/gnn cuda /path/to/graph.bin_graph /path/to/features.bin_matrix
+```
+
+- Run parallel mode with 16 threads:
+```bash
+export OMP_NUM_THREADS=16
+./build/gnn parallel /path/to/graph.bin_graph /path/to/features.bin_matrix
+```
+
+---
+
+## 5. Dataset formats 
+
+The project uses two custom binary formats consumed by `graph::GraphLoader`:
+
+### Graph file: `.bin_graph` (single binary file)
+
+Layout (in byte order little-endian; header format must match Python struct `'<QQBB'`):
+
+1. GraphHeader (packed, total 18 bytes)
+   - `uint64_t numNodes` (8 bytes)  
+   - `uint64_t numEdges` (8 bytes)  
+   - `uint8_t  isDirected` (1 byte) — `0` or `1`  
+   - `uint8_t  hasWeights` (1 byte) — `0` or `1`
+
+2. `colPtr` — array of `uint64_t` of length `numNodes + 1` (column/CSR pointer array)  
+3. `rowInd` — array of `uint64_t` of length `numEdges` (destination row indices / flattened edges)  
+4. `weights` — (optional) array of `float` (IEEE 754 float32) of length `numEdges` — present only if `hasWeights` is 1
+
+Notes:
+
+- The code reads header with `readExact`, then reads `colPtr` and `rowInd` as `uint64_t`.  
+- `colPtr` count is computed as `numNodes + 1`.  
+- The `GraphHeader` `static_assert` enforces the layout matches Python `'<QQBB'`. Use little-endian writes from Python or tools.  
+- The loader returns a `HostGraphCSC` (CSC orientation used internally — but the header/arrays are what the loader expects).  
+
+### Dense matrix file: `.bin_matrix` (used for node features)
+
+Layout (little-endian):
+
+1. `uint64_t rows` (8 bytes)  
+2. `uint64_t cols` (8 bytes)  
+3. `rows * cols` floats (IEEE 754 float32) in row-major order
+
+Notes:
+
+- The loader reads `rows`, `cols` and then reads exactly `rows*cols` floats into the internal `Matrix<HostBuffer<float>>`.  
+
+## 6. Three-Person Workload Division
 
 The project uses one shared-infrastructure stream and two vertical model streams. All three members write parallel code: `s362415` takes GCN through OpenMP and CUDA, `s296248` does the same for GraphSAGE, and `s360540` implements the common OpenMP/CUDA infrastructure and primitives.
 
@@ -200,6 +290,6 @@ Detailed acceptance criteria for every task are in [doc/features.md](doc/feature
 
 ---
 
-## 5. License
+## 7. License
 
 This project is licensed under the European Union Public Licence (EUPL-1.2) - see the [LICENSE](LICENSE) file for details.

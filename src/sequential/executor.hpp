@@ -3,6 +3,7 @@
 #include "cpu_context.hpp"
 #include "data/graph_csc.hpp"
 #include "execution/executor.hpp"
+#include "gnn/layers/gcn_aggregation.hpp"
 
 #include <cstddef>
 #include <omp.h>
@@ -78,6 +79,7 @@ public:
             }
         }
     }
+    [[nodiscard]] layers::GCNAggregationState& gcnState() noexcept { return gcnState_; }
 
 private:
     static void validateProduct(const BufferType& left, const BufferType& right) {
@@ -86,6 +88,8 @@ private:
                 "Matrix product requires the left column count to equal the right row count.");
         }
     }
+    
+    layers::GCNAggregationState gcnState_;
 };
 
 static_assert(Executor<SequentialExecutor>);

@@ -2,6 +2,7 @@
 
 #include "cpu_context.hpp"
 #include "execution/executor.hpp"
+#include "gnn/layers/gcn_aggregation.hpp"
 
 #include <cstddef>
 #include <stdexcept>
@@ -39,6 +40,9 @@ public:
         out_aggregated = BufferType(num_nodes, feat_dim);
     }
 
+//GCN 
+[[nodiscard]] layers::GCNAggregationStateParallel& gcnState() noexcept { return gcnState_; }
+
 private:
     static void validateProduct(const BufferType& left, const BufferType& right) {
         if (left.cols() != right.rows()) {
@@ -46,6 +50,7 @@ private:
                 "Matrix product requires the left column count to equal the right row count.");
         }
     }
+layers::GCNAggregationStateParallel gcnState_;
 };
 
 static_assert(Executor<ParallelExecutor>);

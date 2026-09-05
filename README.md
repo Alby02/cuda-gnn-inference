@@ -79,9 +79,69 @@ flowchart TD
 | [Environment Setup Instructions](doc/environment.md) | Setup guide for Windows (MSYS2 UCRT64), Linux, WSL, and Google Colab. |
 | [GNN & Graph Knowledge Base](doc/knowledge.md) | Mathematical formulation of GCN/GraphSAGE and sparse graph storage (CSR/CSC). |
 
+
+
 ---
 
-## 3. Three-Person Workload Division
+## 3. Build & Execution Instructions
+
+### Prerequisites
+
+- **C++ Compiler**: GCC 11+ / Clang 14+ supporting C++20.
+- **Build System**: [Meson](https://mesonbuild.com/) (>= 0.60) and [Ninja](https://ninja-build.org/).
+- **OpenMP**: For multi-core CPU parallel execution.
+- **CUDA Toolkit** (Optional / Linux): For GPU targets (`nvcc`).
+- **Python** : Python 3.8+, recommended for helper scripts, possible used packages numpy, scipy, networkit, ogb (if converting OGB datasets)
+
+### Quick Start
+
+```bash
+# 0. Create the Python tooling environment
+uv sync
+
+# 1. Configure build directory
+meson setup builddir
+
+# 2. Compile targets
+meson compile -C builddir
+
+# 3. Format and statically analyze the source (Ninja backend)
+ninja -C builddir clang-format
+ninja -C builddir clang-tidy
+
+# 4. Run one of the modes exposed by the single CLI
+./builddir/gnn sequential
+./builddir/gnn parallel
+./builddir/gnn cuda
+```
+
+To run the current demo with generated or downloaded data, pass the graph and node-feature
+files produced by the scripts:
+
+```bash
+./builddir/gnn sequential synth_data/graph.bin_graph synth_data/graph_feats.bin_matrix
+./builddir/gnn parallel synth_data/graph.bin_graph synth_data/graph_feats.bin_matrix
+./builddir/gnn cuda synth_data/graph.bin_graph synth_data/graph_feats.bin_matrix
+```
+
+The loader validates the CSC topology and checks that the feature row count matches the number of
+nodes. Since trained model-parameter import is not implemented yet, this path creates a one-layer
+projection model matching the loaded feature width and prints a preview of its output. Node and edge
+features remain separate execution matrices rather than members of the graph object.
+
+The `clang-format` and `clang-tidy` targets are generated automatically by
+Meson when the corresponding tools and project configuration files are
+available (`.clang-format` and `.clang-tidy`).
+
+The sequential mode is always available. The `parallel` and `cuda` modes are
+listed by `gnn --help` only when OpenMP and CUDA, respectively, were detected
+while configuring the build.
+
+For detailed cross-platform environment setup (including Windows MSYS2 UCRT64 and Google Colab workflows), see [doc/environment.md](doc/environment.md).
+
+---
+
+## 4. Three-Person Workload Division
 
 The project uses one shared-infrastructure stream and two vertical model streams. All three members write parallel code: `s362415` takes GCN through OpenMP and CUDA, `s296248` does the same for GraphSAGE, and `s360540` implements the common OpenMP/CUDA infrastructure and primitives.
 
@@ -137,63 +197,6 @@ incomplete; `Assigned` means implementation has not started.
 | T-DEL-03–T-DEL-05 (GraphSAGE/CUDA) | GraphSAGE/CUDA report sections and demonstration | `s296248` | Assigned |
 
 Detailed acceptance criteria for every task are in [doc/features.md](doc/features.md#61-three-person-delivery-split).
-
----
-
-## 4. Build & Execution Instructions
-
-### Prerequisites
-
-- **C++ Compiler**: GCC 11+ / Clang 14+ supporting C++20.
-- **Build System**: [Meson](https://mesonbuild.com/) (>= 0.60) and [Ninja](https://ninja-build.org/).
-- **OpenMP**: For multi-core CPU parallel execution.
-- **CUDA Toolkit** (Optional / Linux): For GPU targets (`nvcc`).
-
-### Quick Start
-
-```bash
-# 0. Create the Python tooling environment
-uv sync
-
-# 1. Configure build directory
-meson setup builddir
-
-# 2. Compile targets
-meson compile -C builddir
-
-# 3. Format and statically analyze the source (Ninja backend)
-ninja -C builddir clang-format
-ninja -C builddir clang-tidy
-
-# 4. Run one of the modes exposed by the single CLI
-./builddir/gnn sequential
-./builddir/gnn parallel
-./builddir/gnn cuda
-```
-
-To run the current demo with generated or downloaded data, pass the graph and node-feature
-files produced by the scripts:
-
-```bash
-./builddir/gnn sequential synth_data/graph.bin_graph synth_data/graph_feats.bin_matrix
-./builddir/gnn parallel synth_data/graph.bin_graph synth_data/graph_feats.bin_matrix
-./builddir/gnn cuda synth_data/graph.bin_graph synth_data/graph_feats.bin_matrix
-```
-
-The loader validates the CSC topology and checks that the feature row count matches the number of
-nodes. Since trained model-parameter import is not implemented yet, this path creates a one-layer
-projection model matching the loaded feature width and prints a preview of its output. Node and edge
-features remain separate execution matrices rather than members of the graph object.
-
-The `clang-format` and `clang-tidy` targets are generated automatically by
-Meson when the corresponding tools and project configuration files are
-available (`.clang-format` and `.clang-tidy`).
-
-The sequential mode is always available. The `parallel` and `cuda` modes are
-listed by `gnn --help` only when OpenMP and CUDA, respectively, were detected
-while configuring the build.
-
-For detailed cross-platform environment setup (including Windows MSYS2 UCRT64 and Google Colab workflows), see [doc/environment.md](doc/environment.md).
 
 ---
 

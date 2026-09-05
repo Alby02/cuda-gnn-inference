@@ -35,8 +35,8 @@ else
 endif
 
 build_config = configuration_data()
-build_config.set10('GNN_HAS_OPENMP', have_openmp)
-build_config.set10('GNN_HAS_CUDA', have_cuda)
+build_config.set('GNN_HAS_OPENMP', have_openmp)
+build_config.set('GNN_HAS_CUDA', have_cuda)
 configure_file(
   output : 'gnn_build_config.hpp',
   configuration : build_config,

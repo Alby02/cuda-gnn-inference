@@ -5,3 +5,4 @@ dataset_out/
 .venv/
 __pycache__/
 *.py[cod]
+dataset/

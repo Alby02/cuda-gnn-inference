@@ -30,6 +30,7 @@ if have_cuda
     'src/cuda/main_cuda.cu',
     'src/cuda/cuda_kernels.cu',
     'src/cuda/cuda_gcn_kernels.cu',
+    'src/cuda/cuda_GraphSAGE_kernels.cu'
   )
 else
   message('CUDA compiler (nvcc) not found. The CUDA CLI mode will be unavailable.')

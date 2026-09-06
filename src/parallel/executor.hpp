@@ -47,59 +47,59 @@ public:
         });
     }
 
-    void aggregateNeighbors(const auto& graph, const BufferType& in_features,
-                            BufferType& out_aggregated, auto agg_type) const {
+    void aggregateNeighbors(const CpuContext::GraphType& graph, const BufferType& input_feats,
+                            BufferType& output_feats,
+                            gnn::layers::GraphSAGEAggregationType aggType) {
+        const std::uint64_t num_nodes = graph.getNumNodes();
+        const std::size_t feat_dim = input_feats.cols();
 
-        const std::size_t num_nodes = in_features.rows();
-        const std::size_t num_features = in_features.cols();
-        const int layer_num = 2;
-        const int sample[] = {25, 10};
+        const auto* col_ptr = graph.colPtrBuffer().data();
+        const auto* row_ind = graph.rowIndBuffer().data();
 
-        out_aggregated.setShape(num_nodes, num_features);
-        const int max_samples = sample[layer_num];
+        constexpr std::size_t chunkSize = 64;
+#pragma omp parallel for schedule(dynamic, chunkSize)
+        for (std::uint64_t u = 0; u < num_nodes; ++u) {
+            float* out_ptr = output_feats.data() + u * feat_dim;
 
-#pragma omp parallel for schedule(dynamic, 32)
-        for (std::size_t u = 0; u < num_nodes; ++u) {
+            const std::uint64_t start = col_ptr[u];
+            const std::uint64_t end = col_ptr[u + 1];
+            const std::uint64_t degree = end - start;
 
-            auto neighbors = graph.get_neighbors(u);
-            const std::size_t deg = neighbors.size();
-
-            std::size_t actual_samples = (max_samples > 0 && max_samples < deg) ? max_samples : deg;
-
-            for (std::size_t f = 0; f < num_features; ++f) {
-                out_aggregated(u, f) = 0.0f;
-            }
-
-            if (actual_samples == 0) {
+            if (degree == 0) {
+                std::fill_n(out_ptr, feat_dim, 0.0f);
                 continue;
             }
 
-            if (max_samples > 0 && deg > max_samples) {
-                thread_local std::mt19937 rng(1337);
-                std::vector<std::size_t> sampled_indices(deg);
-                for (std::size_t i = 0; i < deg; ++i)
-                    sampled_indices[i] = i;
+            if (aggType == gnn::layers::GraphSAGEAggregationType::MEAN ||
+                aggType == gnn::layers::GraphSAGEAggregationType::SUM) {
+                std::fill_n(out_ptr, feat_dim, 0.0f);
 
-                std::partial_sort(sampled_indices.begin(), sampled_indices.begin() + actual_samples,
-                                  sampled_indices.end(),
-                                  [&](std::size_t a, std::size_t b) { return rng() % 2 == 0; });
-
-                for (std::size_t i = 0; i < actual_samples; ++i) {
-                    std::size_t v = neighbors[sampled_indices[i]];
-                    for (std::size_t f = 0; f < num_features; ++f) {
-                        out_aggregated(u, f) += in_features(v, f);
+                for (std::uint64_t i = start; i < end; ++i) {
+                    const std::uint64_t v = row_ind[i];
+                    const float* in_ptr = input_feats.data() + v * feat_dim;
+#pragma omp simd
+                    for (std::size_t d = 0; d < feat_dim; ++d) {
+                        out_ptr[d] += in_ptr[d];
                     }
                 }
-            } else {
-                for (std::size_t i = 0; i < actual_samples; ++i) {
-                    std::size_t v = neighbors[i];
-                    for (std::size_t f = 0; f < num_features; ++f) {
-                        out_aggregated(u, f) += in_features(v, f);
+
+                if (aggType == gnn::layers::GraphSAGEAggregationType::MEAN) {
+                    const float inv_deg = 1.0f / static_cast<float>(degree);
+#pragma omp simd
+                    for (std::size_t d = 0; d < feat_dim; ++d) {
+                        out_ptr[d] *= inv_deg;
                     }
                 }
-            }
-            for (std::size_t f = 0; f < num_features; ++f) {
-                out_aggregated(u, f) /= actual_samples;
+            } else if (aggType == gnn::layers::GraphSAGEAggregationType::MAX) {
+                std::fill_n(out_ptr, feat_dim, std::numeric_limits<float>::lowest());
+                for (std::uint64_t i = start; i < end; ++i) {
+                    const std::uint64_t v = row_ind[i];
+                    const float* in_ptr = input_feats.data() + v * feat_dim;
+#pragma omp simd
+                    for (std::size_t d = 0; d < feat_dim; ++d) {
+                        out_ptr[d] = std::max(out_ptr[d], in_ptr[d]);
+                    }
+                }
             }
         }
     }

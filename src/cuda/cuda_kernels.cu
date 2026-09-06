@@ -1,6 +1,7 @@
 #include "cuda_executor.cuh"
 #include "cuda_utils.cuh"
 #include <algorithm>
+#include "cuda_GraphSAGE_kernels.cuh"
 namespace gnn {
 namespace {
 using DeviceMatrix = CudaExecutor::BufferType;
@@ -65,4 +66,17 @@ void CudaExecutor::relu(BufferType& output) const {
     reluKernel<<<blocks(output.size(), threads_), threads_>>>(output);
     checkCuda(cudaGetLastError(), "launch ReLU kernel");
 }
+
+void CudaExecutor::aggregateNeighbors(
+    const graph::GraphCSC<cuda::DeviceBuffer<unsigned long>, cuda::DeviceBuffer<float>>& graph,
+    const BufferType& current,
+    BufferType& scratch,
+    layers::GraphSAGEAggregationType aggType) const 
+{
+    cuda::GraphSAGELaunchConfig config;
+    config.aggregateThreadsPerBlock = threads_;
+    cuda::launchGraphSAGEAggregate(graph, current, scratch, aggType, config);
+    cudaDeviceSynchronize();
+}
+
 } // namespace gnn

@@ -74,10 +74,12 @@ private:
 };
 
 template <Executor E, typename WeightMatrix, typename BiasStorage, typename Graph>
-void forward_layer(const GraphSAGELayer<WeightMatrix, BiasStorage>& layer, const Graph&,
+void forward_layer(const GraphSAGELayer<WeightMatrix, BiasStorage>& layer, const Graph& graph,
                    E& executor, typename E::WorkspaceType& workspace) {
     // Existing dense-only placeholder; model-owner aggregation/forward integration is pending.
     executor.rowByColumn(workspace.current(), layer.getWNeigh(), workspace.next());
+    executor.aggregateNeighbors(graph, workspace.current(), workspace.scratch(),
+                                layer.getAggType());
 }
 
 } // namespace gnn::layers

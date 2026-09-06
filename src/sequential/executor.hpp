@@ -48,50 +48,53 @@ public:
         });
     }
 
-    void aggregateNeighbors(const auto& graph, const BufferType& in_features,
-                            BufferType& out_aggregated, auto agg_type) const {
-        const std::size_t num_nodes = graph.getNumNodes();
-        const std::size_t feat_dim = in_features.cols();
-        const int layer_num = 2;
-        const int sample[] = {25, 10};
+    void aggregateNeighbors(const CpuContext::GraphType& graph, const BufferType& input_feats,
+                            BufferType& output_feats,
+                            gnn::layers::GraphSAGEAggregationType aggType) {
+        const std::uint64_t num_nodes = graph.getNumNodes();
+        const std::size_t feat_dim = input_feats.cols();
 
-        out_aggregated = BufferType(num_nodes, feat_dim);
+        const auto* col_ptr = graph.colPtrBuffer().data();
+        const auto* row_ind = graph.rowIndBuffer().data();
 
-        for (std::size_t v = 0; v < num_nodes; ++v) {
-            const auto neighbors = graph.getInNeighbors(static_cast<std::uint64_t>(v));
+        for (std::uint64_t u = 0; u < num_nodes; ++u) {
+            float* out_ptr = output_feats.data() + u * feat_dim;
 
-            if (neighbors.empty()) {
-                for (std::size_t d = 0; d < feat_dim; ++d) {
-                    out_aggregated(v, d) = 0.0F;
-                }
+            const std::uint64_t start = col_ptr[u];
+            const std::uint64_t end = col_ptr[u + 1];
+            const std::uint64_t degree = end - start;
+
+            if (degree == 0) {
+                std::fill_n(out_ptr, feat_dim, 0.0f);
                 continue;
             }
 
-            const float inv_degree = 1.0F / static_cast<float>(neighbors.size());
+            if (aggType == gnn::layers::GraphSAGEAggregationType::MEAN ||
+                aggType == gnn::layers::GraphSAGEAggregationType::SUM) {
+                std::fill_n(out_ptr, feat_dim, 0.0f);
 
-            if (static_cast<int>(agg_type) == 0) { // MEAN
-                for (std::size_t d = 0; d < feat_dim; ++d) {
-                    float sum = 0.0F;
-                    for (const std::uint64_t u : neighbors) {
-                        sum += in_features(u, d);
+                for (std::uint64_t i = start; i < end; ++i) {
+                    const std::uint64_t v = row_ind[i];
+                    const float* in_ptr = input_feats.data() + v * feat_dim;
+                    for (std::size_t d = 0; d < feat_dim; ++d) {
+                        out_ptr[d] += in_ptr[d];
                     }
-                    out_aggregated(v, d) = sum * inv_degree;
                 }
-            } else if (static_cast<int>(agg_type) == 1) { // SUM
-                for (std::size_t d = 0; d < feat_dim; ++d) {
-                    float sum = 0.0F;
-                    for (const std::uint64_t u : neighbors) {
-                        sum += in_features(u, d);
+
+                if (aggType == gnn::layers::GraphSAGEAggregationType::MEAN) {
+                    const float inv_deg = 1.0f / static_cast<float>(degree);
+                    for (std::size_t d = 0; d < feat_dim; ++d) {
+                        out_ptr[d] *= inv_deg;
                     }
-                    out_aggregated(v, d) = sum;
                 }
-            } else if (static_cast<int>(agg_type) == 2) { // MAX
-                for (std::size_t d = 0; d < feat_dim; ++d) {
-                    float max_val = in_features(neighbors[0], d);
-                    for (std::size_t i = 1; i < neighbors.size(); ++i) {
-                        max_val = std::max(max_val, in_features(neighbors[i], d));
+            } else if (aggType == gnn::layers::GraphSAGEAggregationType::MAX) {
+                std::fill_n(out_ptr, feat_dim, std::numeric_limits<float>::lowest());
+                for (std::uint64_t i = start; i < end; ++i) {
+                    const std::uint64_t v = row_ind[i];
+                    const float* in_ptr = input_feats.data() + v * feat_dim;
+                    for (std::size_t d = 0; d < feat_dim; ++d) {
+                        out_ptr[d] = std::max(out_ptr[d], in_ptr[d]);
                     }
-                    out_aggregated(v, d) = max_val;
                 }
             }
         }

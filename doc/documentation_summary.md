@@ -133,6 +133,8 @@ Only the vertex-centric mapping is implemented on the GCN side; edge-centric is 
 ## 5. References
 
 *   Alvaro Sanchez-Gonzalez, Nicolas Heess, Jost Tobias Springenberg, Josh Merel, Martin Riedmiller, Raia Hadsell, Peter Battaglia, *Graph Networks as Learnable Physics Engines for Inference and Control*, Proceedings
-*   Jie Zhou, Ganqu Cui, Shengding Hu, Zhengyan Zhang, Cheng Yang, Zhiyuan Liu, Lifeng Wang, Changcheng Li, Maosong Sun (2020), *Graph neural networks: A review of methods and applications*, AI Open, Volume 1,  ages 57-81,
+*   Jie Zhou, Ganqu Cui, Shengding Hu, Zhengyan Zhang, Cheng Yang, Zhiyuan Liu, Lifeng Wang, Changcheng Li, Maosong Sun (2020), *Graph neural networks: A review of methods and applications*, AI Open, Volume 1,  pages 57-81
+*  Benjamin Rhoads, Abigail Hogue, Lars Kotthoff, Samrat Choudhury (2025) *Structure-Property Linkage in Alloys Using Graph Neural Network and Explainable Artificial Intelligence*, Materials Basel
+*  Yuchen Zhou, Hongtao Huo, Zhiwen Hou, Fanliang Bu (2023) *A deep graph convolutional neural network architecture for graph classification*, PLos One
 *   Open Graph Benchmark: [https://ogb.stanford.edu](https://ogb.stanford.edu)
 *   Project internal specs: `doc/architecture.md`, `doc/semantics.md`, `doc/knowledge.md`, `doc/requirements.md`.

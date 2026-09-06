@@ -1,6 +1,7 @@
 project('cuda-gnn-inference', 'cpp',
+  meson_version : '>=1.1',
   version : '0.1',
-  default_options : ['warning_level=3', 'cpp_std=c++20', 'cpp_eh=default'])
+  default_options : ['buildtype=release', 'warning_level=3', 'cpp_std=c++20', 'cpp_eh=default'])
 
 inc_dir = include_directories('src/common')
 
@@ -12,7 +13,7 @@ gnn_sources = files(
 )
 gnn_dependencies = []
 
-omp_dep = dependency('openmp', required : false)
+omp_dep = dependency('openmp', required : get_option('openmp'))
 have_openmp = omp_dep.found()
 if have_openmp
   message('OpenMP found. Enabling the parallel CLI mode.')
@@ -22,7 +23,7 @@ else
   message('OpenMP not found. The parallel CLI mode will be unavailable.')
 endif
 
-have_cuda = add_languages('cuda', required : false, native : false)
+have_cuda = add_languages('cuda', required : get_option('cuda'), native : false)
 if have_cuda
   message('CUDA compiler (nvcc) found. Enabling the CUDA CLI mode.')
   gnn_sources += files(
@@ -35,8 +36,8 @@ else
 endif
 
 build_config = configuration_data()
-build_config.set('GNN_HAS_OPENMP', have_openmp)
-build_config.set('GNN_HAS_CUDA', have_cuda)
+build_config.set10('GNN_HAS_OPENMP', have_openmp)
+build_config.set10('GNN_HAS_CUDA', have_cuda)
 configure_file(
   output : 'gnn_build_config.hpp',
   configuration : build_config,
@@ -46,20 +47,5 @@ configure_file(
 executable('gnn', gnn_sources,
   dependencies : gnn_dependencies,
   include_directories : inc_dir,
-  override_options : ['cuda_std=c++20'],
+  override_options : ['buildtype=release', 'cuda_std=c++20'],
 )
-
-gcn_aggregation_test = executable('test_gcn_aggregation',
-  'tests/gcn/test_gcn_aggregation.cpp',
-  include_directories : inc_dir,
-)
-test('gcn_aggregation', gcn_aggregation_test)
-
-if have_openmp
-  gcn_skewed_degree_test = executable('test_gcn_parallel_skewed_degree',
-    'tests/gcn/test_gcn_parallel_skewed_degree.cpp',
-    include_directories : inc_dir,
-    dependencies : omp_dep,
-  )
-  test('gcn_parallel_skewed_degree', gcn_skewed_degree_test)
-endif

@@ -58,8 +58,7 @@ public:
         return {weights_.data() + colPtr_.data()[node], inDegree(node)};
     }
 
-    [[nodiscard]] GNN_HOST_DEVICE std::uint64_t
-    getSourceNode(std::uint64_t edgeId) const noexcept {
+    [[nodiscard]] GNN_HOST_DEVICE std::uint64_t getSourceNode(std::uint64_t edgeId) const noexcept {
         return rowInd_.data()[edgeId];
     }
 

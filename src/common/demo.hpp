@@ -3,6 +3,7 @@
 #include "data/graph_csc.hpp"
 #include "data/loader.hpp"
 #include "data/matrix.hpp"
+#include "data/workload.hpp"
 #include "gnn/model.hpp"
 #include "host_layers.hpp"
 
@@ -17,13 +18,8 @@
 
 namespace gnn::demo {
 
-using CpuDemoModel = Model<layers::HostGCN, layers::HostGraphSAGE>;
-
-struct CpuDemo {
-    graph::HostGraphCSC graph;
-    Matrix<HostBuffer<float>> input;
-    CpuDemoModel model;
-};
+using CpuDemoModel = HostModel;
+using CpuDemo = HostWorkload;
 
 [[nodiscard]] inline Matrix<HostBuffer<float>> makeMatrix(std::size_t rows, std::size_t columns,
                                                           std::initializer_list<float> values) {

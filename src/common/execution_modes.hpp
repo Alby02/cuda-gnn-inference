@@ -1,11 +1,11 @@
 #pragma once
 
-#include <string_view>
+#include "cli.hpp"
 
 namespace gnn {
 
-int run_sequential(std::string_view graphPath = {}, std::string_view featurePath = {});
-int run_parallel(std::string_view graphPath = {}, std::string_view featurePath = {});
-int run_cuda(std::string_view graphPath = {}, std::string_view featurePath = {});
+int run_sequential(const RunOptions& options);
+int run_parallel(const RunOptions& options);
+int run_cuda(const RunOptions& options);
 
 } // namespace gnn

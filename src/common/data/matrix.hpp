@@ -37,9 +37,7 @@ public:
     }
     [[nodiscard]] GNN_HOST_DEVICE bool empty() const noexcept { return size() == 0; }
     [[nodiscard]] GNN_HOST_DEVICE ValueType* data() noexcept { return buffer_.data(); }
-    [[nodiscard]] GNN_HOST_DEVICE const ValueType* data() const noexcept {
-        return buffer_.data();
-    }
+    [[nodiscard]] GNN_HOST_DEVICE const ValueType* data() const noexcept { return buffer_.data(); }
 
     GNN_HOST_DEVICE void setShape(std::size_t rows, std::size_t columns) {
         buffer_.setLogicalSize(elementCount(rows, columns));
@@ -52,8 +50,8 @@ public:
         return buffer_.data()[row * columns_ + column];
     }
 
-    [[nodiscard]] GNN_HOST_DEVICE const ValueType&
-    operator()(std::size_t row, std::size_t column) const noexcept {
+    [[nodiscard]] GNN_HOST_DEVICE const ValueType& operator()(std::size_t row,
+                                                              std::size_t column) const noexcept {
         return buffer_.data()[row * columns_ + column];
     }
 

@@ -1,39 +1,27 @@
 #pragma once
-
 #include "cuda_gcn_aggregation.cuh"
-#include "cuda_kernels.cuh"
 #include "cuda_workspace.cuh"
-#include "data/matrix.hpp"
 #include "execution/executor.hpp"
-
-#include <cuda_runtime.h>
-
-#include <stdexcept>
-
+#include <memory>
 namespace gnn {
-
 class CudaExecutor {
 public:
     using WorkspaceType = CudaWorkspace;
     using BufferType = WorkspaceType::BufferType;
     using WeightType = BufferType;
-
-    void rowByColumn(const BufferType& left, const WeightType& right, BufferType& output) {
-        if (left.cols() != right.rows()) {
-            throw std::invalid_argument(
-                "Matrix product requires the left column count to equal the right row count.");
-        }
-
-        output.setShape(left.rows(), right.cols());
-        cuda::launchRowByColumn(left, right, output);
-        checkCuda(cudaDeviceSynchronize(), "CUDA matrix multiplication");
-    }
-    [[nodiscard]] layers::CudaGCNAggregationState& gcnState() noexcept { return gcnState_; }
+    using BiasType = cuda::DeviceBuffer<float>;
+    CudaExecutor(unsigned threads = 256) : threads_(threads) {}
+    void rowByColumn(const BufferType& left, const WeightType& right, BufferType& output) const;
+    void add(const BufferType& left, const BufferType& right, BufferType& output) const;
+    void biasAdd(BufferType& output, const BiasType& bias) const;
+    void relu(BufferType& output) const;
+    [[nodiscard]] layers::CudaGCNAggregationState& gcnState() noexcept { return *gcnState_; }
 
 private:
-    layers::CudaGCNAggregationState gcnState_;
+    unsigned threads_;
+    // The aggregation state is non-movable; its owner moves with the executor into the runtime.
+    std::unique_ptr<layers::CudaGCNAggregationState> gcnState_ =
+        std::make_unique<layers::CudaGCNAggregationState>();
 };
-
 static_assert(Executor<CudaExecutor>);
-
 } // namespace gnn

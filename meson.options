@@ -1,0 +1,2 @@
+option('openmp', type : 'feature', value : 'auto', description : 'Build OpenMP executor')
+option('cuda', type : 'feature', value : 'auto', description : 'Build CUDA executor (Linux/WSL/Colab)')

@@ -3,6 +3,7 @@
 #include "../../data/buffer.hpp"
 #include "../../data/matrix.hpp"
 #include "../../execution/executor.hpp"
+#include "../layer.hpp"
 
 #include <stdexcept>
 #include <utility>
@@ -32,15 +33,11 @@ public:
     [[nodiscard]] GNN_HOST_DEVICE std::size_t getOutDim() const noexcept {
         return neighborWeights_.cols();
     }
-    [[nodiscard]] GNN_HOST_DEVICE ActivationType getActType() const noexcept {
-        return activation_;
-    }
+    [[nodiscard]] GNN_HOST_DEVICE ActivationType getActType() const noexcept { return activation_; }
     [[nodiscard]] GNN_HOST_DEVICE const WeightMatrix& getWNeigh() const noexcept {
         return neighborWeights_;
     }
-    [[nodiscard]] GNN_HOST_DEVICE bool hasBias() const noexcept {
-        return bias_.logicalSize() != 0;
-    }
+    [[nodiscard]] GNN_HOST_DEVICE bool hasBias() const noexcept { return bias_.logicalSize() != 0; }
     [[nodiscard]] GNN_HOST_DEVICE const BiasStorage& getBias() const noexcept { return bias_; }
 
 private:
@@ -61,6 +58,7 @@ private:
 template <Executor E, typename WeightMatrix, typename BiasStorage, typename Graph>
 void forward_layer(const GCNLayer<WeightMatrix, BiasStorage>& layer, const Graph&, E& executor,
                    typename E::WorkspaceType& workspace) {
+    // Existing dense-only placeholder; model-owner aggregation/forward integration is pending.
     executor.rowByColumn(workspace.current(), layer.getWNeigh(), workspace.next());
 }
 

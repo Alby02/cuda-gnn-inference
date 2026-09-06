@@ -1,33 +1,38 @@
+#include "benchmark.hpp"
+#include "data/model_io.hpp"
 #include "demo.hpp"
 #include "execution/runtime.hpp"
 #include "execution_modes.hpp"
 #include "executor.hpp"
-
 #include <iostream>
-#include <string>
-#include <string_view>
-#include <utility>
 
 namespace gnn {
-
-int run_sequential(std::string_view graphPath, std::string_view featurePath) {
-    const bool usesLoadedData = !graphPath.empty();
-    auto workload = usesLoadedData
-                        ? demo::loadCpuDemo(std::string(graphPath), std::string(featurePath))
-                        : demo::makeCpuDemo();
-    const auto nodeCount = workload.graph.getNumNodes();
-    const auto inputDimension = workload.input.cols();
+int run_sequential(const RunOptions& options) {
+    const auto loadStart = bench::Clock::now();
+    auto workload = io::loadWorkload(options);
+    const double loadMs = bench::milliseconds(loadStart);
+    const auto setupStart = bench::Clock::now();
     InferenceRuntime<SequentialExecutor> runtime;
-
-    const Matrix<HostBuffer<float>> result =
-        runtime.run(workload.graph, workload.model, std::move(workload.input));
-
-    std::cout << (usesLoadedData ? "Loaded-data sequential output"
-                                 : "Sequential GCN -> GraphSAGE -> GCN output")
-              << " (nodes=" << nodeCount << ", input_features=" << inputDimension
-              << ", output_features=" << result.cols() << "):\n";
-    demo::printMatrix(result, std::cout);
+    CpuContext workspace;
+    workspace.prepare(workload.data);
+    const double setupMs = bench::milliseconds(setupStart);
+    bench::CpuTimer timer;
+    const auto measurements = bench::measure(
+        options.warmups, options.repetitions, [&] { workspace.resetInput(); },
+        [&] { runtime.run(workspace); }, timer);
+    const auto& output = workspace.getOutput();
+    bench::Record record;
+    record["load_ms"] = bench::number(loadMs);
+    record["setup_ms"] = bench::number(setupMs);
+    record["upload_ms"] = "0";
+    record["download_ms"] = "0";
+    record["workspace_bytes"] = std::to_string(workspace.capacityBytes());
+    bench::writeResults(options.output, record, measurements);
+    if (!options.embeddings.empty())
+        io::saveMatrix(options.embeddings, output);
+    std::cout << "Compute mean " << measurements.meanMs << " ms; population stddev "
+              << measurements.stddevMs << " ms\n";
+    demo::printMatrix(output, std::cout);
     return 0;
 }
-
 } // namespace gnn

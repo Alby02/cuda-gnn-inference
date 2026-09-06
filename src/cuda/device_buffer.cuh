@@ -19,9 +19,7 @@ public:
 
     [[nodiscard]] GNN_HOST_DEVICE T* data() noexcept { return data_; }
     [[nodiscard]] GNN_HOST_DEVICE const T* data() const noexcept { return data_; }
-    [[nodiscard]] GNN_HOST_DEVICE std::size_t logicalSize() const noexcept {
-        return logicalSize_;
-    }
+    [[nodiscard]] GNN_HOST_DEVICE std::size_t logicalSize() const noexcept { return logicalSize_; }
     [[nodiscard]] GNN_HOST_DEVICE std::size_t physicalSize() const noexcept {
         return physicalSize_;
     }

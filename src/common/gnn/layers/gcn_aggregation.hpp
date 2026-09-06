@@ -112,7 +112,7 @@ private:
     const graph::HostGraphCSC* cachedGraph_{nullptr};
     std::vector<float> invSqrtDeg_;
     std::vector<std::uint8_t> hasExplicitSelfLoop_;
-    HostMatrix scratch_;
+    HostMatrix scratch_{0,0};
 };
 
 } //

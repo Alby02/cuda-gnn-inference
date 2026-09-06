@@ -7,8 +7,7 @@ struct RunOptions {
 
     std::string graph;    // Graph topology binary path.
     std::string features; // Node-feature matrix path, paired with graph.
-    std::string
-        model; // Model description with weight and bias paths; required with graph and features.
+    std::string model;    // Model description with weight and bias paths; required with graph and features.
     std::string output;     // Benchmark CSV path; empty disables CSV export.
     std::string embeddings; // Final output matrix path; empty disables binary export.
 

@@ -17,7 +17,7 @@ public:
     GraphCSC(bool isDirected, IndexStorage colPtr, IndexStorage rowInd,
              WeightStorage weights = WeightStorage{})
         : isDirected_(isDirected), colPtr_(std::move(colPtr)), rowInd_(std::move(rowInd)),
-          weights_(std::move(weights)){};
+          weights_(std::move(weights)) {};
 
     // Graph base properties
     [[nodiscard]] GNN_HOST_DEVICE std::uint64_t getNumNodes() const noexcept {

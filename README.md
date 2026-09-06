@@ -71,6 +71,7 @@ flowchart TD
 
 | Document | Description |
 | :--- | :--- |
+| [Documentation](doc/documentation_summary.md) | Implementation and design choices summarized in order to meet the derivables requirements. |
 | [Modular Architecture Specification](doc/architecture.md) | In-depth technical specification of the 5-pillar architecture, C++20 concepts, and memory models. |
 | [Original Project Specification](doc/project.md) | Official course problem definition, required deliverables, and background. |
 | [Requirements Document](doc/requirements.md) | Functional, non-functional, architectural, and performance requirements. |

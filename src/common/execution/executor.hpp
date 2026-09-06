@@ -4,7 +4,8 @@
 #include "workspace.hpp"
 
 #include <concepts>
-
+#include <random>
+#include <vector>
 namespace gnn {
 
 template <typename E>
@@ -22,6 +23,13 @@ concept Executor =
         { executor.add(workspace.current(), weights, workspace.next()) } -> std::same_as<void>;
         { executor.biasAdd(workspace.next(), bias) } -> std::same_as<void>;
         { executor.relu(workspace.next()) } -> std::same_as<void>;
+        {
+            executor.aggregateNeighbors(workspace.getGraph(), // const auto& graph
+                                        workspace.current(),  // const BufferType& in_features
+                                        workspace.scratch(),  // BufferType& out_aggregated
+                                        0                  // auto agg_type
+            )
+        } -> std::same_as<void>;
     };
 
 } // namespace gnn

@@ -49,10 +49,11 @@ public:
     }
 
     void aggregateNeighbors(const auto& graph, const BufferType& in_features,
-                            BufferType& out_aggregated, auto agg_type, const int layer_num,
-                            const int* sample[]) {
+                            BufferType& out_aggregated, auto agg_type) const {
         const std::size_t num_nodes = graph.getNumNodes();
         const std::size_t feat_dim = in_features.cols();
+        const int layer_num = 2;
+        const int sample[] = {25, 10};
 
         out_aggregated = BufferType(num_nodes, feat_dim);
 

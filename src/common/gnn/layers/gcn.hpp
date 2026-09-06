@@ -59,7 +59,9 @@ template <Executor E, typename WeightMatrix, typename BiasStorage, typename Grap
 void forward_layer(const GCNLayer<WeightMatrix, BiasStorage>& layer, const Graph&, E& executor,
                    typename E::WorkspaceType& workspace) {
     // Existing dense-only placeholder; model-owner aggregation/forward integration is pending.
+    
     executor.rowByColumn(workspace.current(), layer.getWNeigh(), workspace.next());
+    
 }
 
 } // namespace gnn::layers

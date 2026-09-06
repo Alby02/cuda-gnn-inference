@@ -42,8 +42,24 @@ configure_file(
   configuration : build_config,
 )
 
+
 executable('gnn', gnn_sources,
   dependencies : gnn_dependencies,
   include_directories : inc_dir,
   override_options : ['cuda_std=c++20'],
 )
+
+gcn_aggregation_test = executable('test_gcn_aggregation',
+  'tests/gcn/test_gcn_aggregation.cpp',
+  include_directories : inc_dir,
+)
+test('gcn_aggregation', gcn_aggregation_test)
+
+if have_openmp
+  gcn_skewed_degree_test = executable('test_gcn_parallel_skewed_degree',
+    'tests/gcn/test_gcn_parallel_skewed_degree.cpp',
+    include_directories : inc_dir,
+    dependencies : omp_dep,
+  )
+  test('gcn_parallel_skewed_degree', gcn_skewed_degree_test)
+endif

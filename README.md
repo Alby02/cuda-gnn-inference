@@ -143,54 +143,65 @@ For detailed cross-platform environment setup (including Windows MSYS2 UCRT64 an
 ---
 ## 4. Execution parameters
 
-Usage (exact as implemented in src/common/main.cpp):
-
 ```
-Usage: ./gnn <mode> [graph.bin_graph features.bin_matrix]
+Usage: gnn --backend MODE [options]
+Modes: sequential parallel cuda   (parallel/cuda only listed if OpenMP/CUDA were found at build time)
 ```
 
-mode (positional, required)
+`--backend MODE` (optional, default: `sequential`)
 
-- `sequential` — Single-threaded CPU run  
-- `parallel` — Multi-threaded CPU (OpenMP) — only available if OpenMP was found at build time  
-- `cuda` — CUDA GPU run — only available if CUDA (nvcc) was found at build time
+- `sequential` — Single-threaded CPU run
+- `parallel` — Multi-threaded CPU (OpenMP) — only available if OpenMP was found at build time
+- `cuda` — CUDA GPU run — only available if CUDA (`nvcc`) was found at build time
 
-`graph.bin_graph` (optional positional)
+Data options — `--graph`, `--features`, and `--model` are **required together**; if any one of the three is missing, the program ignores all three and runs the built-in two-node demo instead:
 
-Path to a single binary graph file in the repository's custom `.bin_graph` format.  
-If omitted, the built-in demo graph is used.
+- `--graph FILE` — binary graph topology in the repository's custom `.bin_graph` format
+- `--features FILE` — binary dense node-feature matrix in the custom `.bin_matrix` format
+- `--model FILE` — model description manifest (layer types, activations, weight/bias file paths); see `src/common/data/model_io.hpp` for the exact manifest format. No script in `scripts/` currently generates this manifest — `--graph`/`--features`/`--model` today have to be produced/authored manually to match that loader.
 
-`features.bin_matrix` (optional positional)
+Other options:
 
-Path to a single binary dense matrix file for node features in the custom `.bin_matrix` format.  
-If omitted, the built-in demo feature matrix is used.
+- `--help`, `-h` — show CLI usage and exit
+- `--output CSV` — path for the machine-readable benchmark results; omit to skip CSV export
+- `--embeddings FILE` — path to write the final output embedding matrix; omit to skip
+- `--warmups N` — unmeasured warm-up iterations before timing (default: `1`)
+- `--repetitions N` — number of measured iterations (default: `10`)
+- `--threads N` — OpenMP worker threads, only used by `--backend parallel` (default: `1`)
+- `--block-size N` — CUDA threads per block, only used by `--backend cuda` (default: `256`)
 
 **Runtime behaviour to take into account**:
 
-- If both graph and feature paths are provided, the program attempts to load them. If the loaded feature matrix row count does not match the graph node count, execution aborts with an error.  
-- The program prints a small result matrix (demo / loaded-data output) to stdout.
+- With no `--graph`/`--features`/`--model` (or with a partial set of the three), the program runs the built-in demo and prints `running demo`.
+- If the loaded feature matrix's row count does not match the graph's node count, execution aborts with an error.
+- The program prints the mean/stddev compute time and a preview of the result matrix to stdout.
 
 Environment variables that affect execution:
 
-- `OMP_NUM_THREADS` — controls CPU-thread count for OpenMP (useful for `parallel` mode).  
-- `CUDA_VISIBLE_DEVICES` — controls which GPUs are visible to the process (useful for `cuda` mode).
+- `OMP_NUM_THREADS` — controls CPU-thread count for OpenMP (used together with `--threads` for `--backend parallel`)
+- `CUDA_VISIBLE_DEVICES` — controls which GPUs are visible to the process (useful for `--backend cuda`)
 
 Examples:
 
 - Run built-in demo (no data paths):
-```
-./build/gnn sequential
+```bash
+./builddir/gnn --backend sequential
 ```
 
 - Run with custom data:
-```
-./build/gnn cuda /path/to/graph.bin_graph /path/to/features.bin_matrix
+```bash
+./builddir/gnn --backend cuda --graph path/to/graph.bin_graph --features path/to/features.bin_matrix --model path/to/model.manifest
 ```
 
 - Run parallel mode with 16 threads:
 ```bash
 export OMP_NUM_THREADS=16
-./build/gnn parallel /path/to/graph.bin_graph /path/to/features.bin_matrix
+./builddir/gnn --backend parallel --threads 16 --graph path/to/graph.bin_graph --features path/to/features.bin_matrix --model path/to/model.manifest
+```
+
+- Export benchmark results and the output embeddings:
+```bash
+./builddir/gnn --backend sequential --graph g.bin_graph --features f.bin_matrix --model m.manifest --output results.csv --embeddings out.bin_matrix --warmups 3 --repetitions 20
 ```
 
 ---

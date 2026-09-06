@@ -121,6 +121,13 @@ def generate_synthetic_graph(
     feats_filename = f"{out_prefix}_feats.bin_matrix"
     export_dense_matrix(feats_filename, node_features) #export
 
+    return {
+        "csc_mat": csc_mat,
+        "num_nodes": csc_mat.shape[0],
+        "is_directed": effective_directed,
+        "graph_filename": graph_filename,
+        "feats_filename": feats_filename,
+    }
 
 if __name__ == "__main__": #launch from command line
     parser = argparse.ArgumentParser(description="Synthetic Graph Generator")

@@ -56,10 +56,14 @@ private:
 };
 
 template <Executor E, typename WeightMatrix, typename BiasStorage, typename Graph>
-void forward_layer(const GCNLayer<WeightMatrix, BiasStorage>& layer, const Graph&, E& executor,
-                   typename E::WorkspaceType& workspace) {
-    // Existing dense-only placeholder; model-owner aggregation/forward integration is pending.
-    executor.rowByColumn(workspace.current(), layer.getWNeigh(), workspace.next());
+void forward_layer(const GCNLayer<WeightMatrix, BiasStorage>& layer, const Graph& graph,
+                   E& executor, typename E::WorkspaceType& workspace) {
+    executor.rowByColumn(workspace.current(), layer.getWNeigh(), workspace.scratch());
+    executor.aggregateGCN(graph, workspace.scratch(), workspace.getGCNState(), workspace.next());
+    if (layer.hasBias())
+        executor.biasAdd(workspace.next(), layer.getBias());
+    if (layer.getActType() == GCNActivationType::RELU)
+        executor.relu(workspace.next());
 }
 
 } // namespace gnn::layers

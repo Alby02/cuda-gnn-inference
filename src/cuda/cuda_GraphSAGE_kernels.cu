@@ -4,15 +4,14 @@
 #include <cuda_runtime.h>
 #include <math_constants.h>
 
+#include "gnn/layers/graph_sage.hpp"
 #include <algorithm>
 #include <cstddef>
-#include "gnn/layers/graph_sage.hpp"
 
 namespace gnn::cuda {
 namespace {
 
-__global__ void graphSAGEAggregateKernel(DeviceGraph graph, DeviceMatrix input,
-                                         DeviceMatrix output,
+__global__ void graphSAGEAggregateKernel(DeviceGraph graph, DeviceMatrix input, DeviceMatrix output,
                                          gnn::layers::GraphSAGEAggregationType aggType) {
     const std::size_t first = blockIdx.x * blockDim.x + threadIdx.x;
     const std::size_t stride = blockDim.x * gridDim.x;
@@ -27,14 +26,19 @@ __global__ void graphSAGEAggregateKernel(DeviceGraph graph, DeviceMatrix input,
         const auto neighbors = graph.getInNeighbors(v);
         const auto weights = graph.getInWeights(v);
 
+        const bool mean = aggType == layers::GraphSAGEAggregationType::MEAN;
+        float totalWeight = 0.0F;
         float sumVal = 0.0F;
         float maxVal = -CUDART_INF_F;
 
         for (std::size_t e = 0; e < neighbors.size(); ++e) {
             const std::uint64_t u = neighbors[e];
-            const float w = weighted ? weights[e] : 1.0F;
+            if (mean && u == v)
+                continue;
+            const float w = mean && weighted ? weights[e] : 1.0F;
+            totalWeight += w;
             const float val = w * input(static_cast<std::size_t>(u), f);
-            
+
             sumVal += val;
             if (val > maxVal) {
                 maxVal = val;
@@ -46,7 +50,8 @@ __global__ void graphSAGEAggregateKernel(DeviceGraph graph, DeviceMatrix input,
         // } else if (static_cast<int>(aggType) == 2) {
         //     output(static_cast<std::size_t>(v), f) = sumVal;
         // } else {
-        //     output(static_cast<std::size_t>(v), f) = neighbors.size() > 0 ? sumVal / static_cast<float>(neighbors.size()) : 0.0F;
+        //     output(static_cast<std::size_t>(v), f) = totalWeight > 0 ? sumVal / totalWeight :
+        //     0.0F;
         // }
         using AggType = gnn::layers::GraphSAGEAggregationType;
         if (aggType == AggType::MAX) {
@@ -54,7 +59,7 @@ __global__ void graphSAGEAggregateKernel(DeviceGraph graph, DeviceMatrix input,
         } else if (aggType == AggType::SUM) {
             output(static_cast<std::size_t>(v), f) = sumVal;
         } else { // MEAN
-            output(static_cast<std::size_t>(v), f) = neighbors.size() > 0 ? sumVal / static_cast<float>(neighbors.size()) : 0.0F;
+            output(static_cast<std::size_t>(v), f) = totalWeight > 0 ? sumVal / totalWeight : 0.0F;
         }
     }
 }
@@ -76,8 +81,8 @@ void launchGraphSAGEAggregate(DeviceGraph graph, DeviceMatrix input, DeviceMatri
     if (blocks == 0) {
         return;
     }
-    graphSAGEAggregateKernel<<<blocks, config.aggregateThreadsPerBlock>>>(
-        graph, input, output, aggType);
+    graphSAGEAggregateKernel<<<blocks, config.aggregateThreadsPerBlock>>>(graph, input, output,
+                                                                          aggType);
     checkCuda(cudaGetLastError(), "launch GraphSAGE aggregation kernel");
 }
 

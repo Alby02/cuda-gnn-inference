@@ -1,5 +1,6 @@
 #pragma once
 
+#include "cuda_gcn_aggregation.cuh"
 #include "cuda_utils.cuh"
 #include "data/graph_csc.hpp"
 #include "data/matrix.hpp"
@@ -31,6 +32,7 @@ public:
     using GraphSAGEType = layers::GraphSAGELayer<BufferType, cuda::DeviceBuffer<float>>;
     using ModelType = Model<GCNType, GraphSAGEType>;
 
+    using GCNStateType = layers::CudaGCNAggregationState;
     using WorkloadType = HostWorkload;
     using HostOutputType = layers::HostMatrix;
 
@@ -48,6 +50,7 @@ public:
         const double uploadMs =
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - begin)
                 .count();
+        gcnState_.prepare(*graph_);
         const auto width = maximumFeatureWidth(workload.model);
         current_ = makeMatrix(input_.rows(), width);
         next_ = makeMatrix(input_.rows(), width);
@@ -69,6 +72,7 @@ public:
         }
         current_.setShape(input_.rows(), input_.cols());
     }
+    [[nodiscard]] GCNStateType& getGCNState() noexcept { return gcnState_; }
     [[nodiscard]] const GraphType& getGraph() const noexcept { return *graph_; }
     [[nodiscard]] const ModelType& getModel() const noexcept { return *model_; }
     // Owning host result; performs a device-to-host copy outside compute timing.
@@ -79,7 +83,7 @@ public:
         std::size_t total = 0;
         for (const auto& allocation : allocations_)
             total += allocation.bytes();
-        return total;
+        return total + gcnState_.capacityBytes();
     }
 
     [[nodiscard]] BufferType& current() noexcept { return current_; }
@@ -172,6 +176,7 @@ private:
     std::optional<GraphType> graph_;
     std::optional<ModelType> model_;
     BufferType input_{};
+    GCNStateType gcnState_;
     BufferType current_{};
     BufferType next_{};
     BufferType scratch_{};

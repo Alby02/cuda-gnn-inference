@@ -16,7 +16,7 @@ int run_parallel(const RunOptions& options) {
     const double loadMs = bench::milliseconds(loadStart);
     const auto setupStart = bench::Clock::now();
     InferenceRuntime<ParallelExecutor> runtime;
-    CpuContext workspace;
+    ParallelCpuContext workspace;
     workspace.prepare(workload.data);
     const double setupMs = bench::milliseconds(setupStart);
     bench::CpuTimer timer;

@@ -27,6 +27,7 @@ concept Workspace =
         { workspace.next() } -> std::same_as<typename W::BufferType&>;
         { workspace.scratch() } -> std::same_as<typename W::BufferType&>;
         { workspace.branch() } -> std::same_as<typename W::BufferType&>;
+        { workspace.getGCNState() } -> std::same_as<typename W::GCNStateType&>;
         { workspace.swapBuffers() } -> std::same_as<void>;
         { constWorkspace.capacityBytes() } -> std::same_as<std::size_t>;
     };

@@ -1,5 +1,5 @@
 #include "cuda_gcn_kernels.cuh"
-#include "cuda_workspace.cuh" 
+#include "cuda_utils.cuh"
 
 #include <cuda_runtime.h>
 
@@ -30,7 +30,7 @@ __global__ void gcnPrepareMetadataKernel(DeviceGraph graph, DeviceBuffer<float> 
             }
         }
         if (!explicitSelf) {
-            weightedDegree += 1.0F; 
+            weightedDegree += 1.0F;
         }
 
         hasExplicitSelfLoop.data()[v] = explicitSelf ? 1 : 0;
@@ -38,7 +38,7 @@ __global__ void gcnPrepareMetadataKernel(DeviceGraph graph, DeviceBuffer<float> 
     }
 }
 
-__global__ void gcnAggregateKernel(DeviceGraph graph, DeviceMatrix input,
+__global__ void gcnAggregateKernel(DeviceGraph graph, const DeviceMatrix input,
                                    DeviceBuffer<float> invSqrtDeg,
                                    DeviceBuffer<std::uint8_t> hasExplicitSelfLoop,
                                    DeviceMatrix output) {
@@ -102,9 +102,9 @@ void launchGcnAggregate(DeviceGraph graph, DeviceMatrix input, DeviceBuffer<floa
     if (blocks == 0) {
         return;
     }
-    gcnAggregateKernel<<<blocks, config.aggregateThreadsPerBlock>>>(
-        graph, input, invSqrtDeg, hasExplicitSelfLoop, output);
+    gcnAggregateKernel<<<blocks, config.aggregateThreadsPerBlock>>>(graph, input, invSqrtDeg,
+                                                                    hasExplicitSelfLoop, output);
     checkCuda(cudaGetLastError(), "launch GCN aggregation kernel");
 }
 
-} // 
+} // namespace gnn::cuda

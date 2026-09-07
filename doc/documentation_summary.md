@@ -1,6 +1,6 @@
 # GNN Inference Engine on CPUs and GPUs — Project Documentation
 
-This document fullfill the requirements for the DOCUMENTATION file mandatory in the deliverables. It is therefore an integrated summary of the already present markdown in this folder, for better me[...]
+This document fullfill the requirements for the DOCUMENTATION file mandatory in the deliverables. It is therefore an integrated summary of the already present markdown in this folder, for better meeting the requirements of the documentation. For further details refers to [semantics.md](semantics.md) for binding selections and mathematical conventions, [architecture.md](architecture.md) for software responsibilities, [requirements.md](requirements.md) for project requirements and [knowledge.md](knowledge.md) for explanation regarding GNN.
 
 ---
 
@@ -136,7 +136,10 @@ for each (v, f) assigned to thread:
 
 
 #### 1.7.3 GraphSAGE CUDA implementation
-The GraphSAGE CUDA engine uses the same destination/feature 2D mapping and implements neighborhood aggregation via `launchGraphSAGEAggregate`. It supports MEAN, SUM, and MAX aggregators with layer-dependent uniform-stride neighbor sampling.
+The GraphSAGE CPU implementation uses a destination-centric vertex ownership model:
+* Each OpenMP thread is assigned a chunk of destination nodes.
+* The thread pulls neighbor features, accumulates them, and divides by the in-degree to compute the mean.
+* Because threads only write to their assigned destination rows in the output matrix, the algorithm requires zero atomics or mutexes. `dynamic` scheduling is utilized to mitigate load imbalance caused by power-law degree distributions.
 
 ### 1.8 Strategies for handling highly skewed degree distributions
 
@@ -178,7 +181,7 @@ GCN CPU OpenMP parallelization is fully functional and verified across destinati
 - **Thread assignment:** Static scheduling performs well on uniform-degree graphs; guided scheduling recommended for power-law topologies to mitigate load imbalance
 
 **Comparison with GraphSAGE:**
-End-to-end multi-backend benchmarking (sequential/parallel/CUDA) currently emphasizes GraphSAGE due to CUDA engine unification delays for GCN. However, CPU-only comparisons demonstrate that GCN's simpler aggregation model (no sampling, uniform normalization) enables faster per-layer execution than GraphSAGE's dual-branch architecture on the same hardware.
+CPU comparisons demonstrate that GCN's simpler aggregation model (no sampling, uniform normalization) enables faster per-layer execution than GraphSAGE's dual-branch architecture on the same hardware.
 
 #### 2.1.2 GraphSAGE
 
@@ -249,15 +252,15 @@ End-to-end multi-backend benchmarking (sequential/parallel/CUDA) currently empha
 | LargeDeep-3L | 256 | 3 | cuda | ~119.91 (E2E) | 119.91 | 667,160.8 | 1158.0 | 52.40x |
 
 ### 2.2 Vertex-centric vs. edge-centric
-Only the vertex-centric mapping is implemented across engines; edge-centric was explicitly scoped out (`F-OMP-ADDITIONAL` optional requirement). Destination-centric vertex ownership provides race-free aggregation and natural CSC traversal with no atomics, making it the selected mapping for both CPU and GPU backends.
+Only the vertex-centric mapping is implemented across engines; edge-centric was explicitly scoped out (`F-OMP-ADDITIONAL` optional requirement). Destination-centric vertex ownership provides race-free, lockless accumulation into the output buffers without requiring atomic instructions or thread-local reduction scratchpads.
 
 ### 2.3 With/without shared memory (CUDA)
-The primary CUDA aggregation kernel relies on direct, coalesced global memory loads across feature dimensions rather than staging graph adjacency into shared memory. Because node degree distributions are highly irregular (power-law), the benefit of caching a degree's neighbors in shared memory is offset by synchronization costs, limited shared-memory capacity, and the need to handle degree-dependent occupancy. A focused shared-memory study isolating the feature-dimension tiling benefit remains a potential extension.
+The primary CUDA aggregation kernel relies on direct, coalesced global memory loads across feature dimensions rather than staging graph adjacency into shared memory. Because node degree distribution varies drastically, staging dynamic-length neighbor lists into shared memory causes significant warp divergence and register pressure. Direct reads, aided by the L1/L2 cache hierarchy, proved more robust and eliminated inter-thread block synchronizations.
 
 ### 2.4 Different graph and feature sizes & architectural insights
 * **GPU Acceleration Threshold Effect:**
-  * **Small Graph Scenarios (Nodes $\le$ 3K):** Unconditional CUDA usage leads to performance degradation (speedups of only **0.10x to 1.15x**). Kernel launch latencies and PCIe data transfers dominate; compute saturation remains insufficient.
-  * **Large Graph Scenarios (Nodes $\ge$ 80K):** GPU demonstrates overwhelming advantages. Massive neighbor aggregation fully saturates compute units, achieving **10.97x to 60.16x** speedups with minimal kernel overhead.
+  * **Small Graph Scenarios (Nodes $\le$ 3K):** Unconditional CUDA usage leads to performance degradation (speedups of only **0.10x to 1.15x**). Kernel launch latencies and PCIe data transfers dominate total runtime.
+  * **Large Graph Scenarios (Nodes $\ge$ 80K):** GPU demonstrates overwhelming advantages. Massive neighbor aggregation fully saturates compute units, achieving **10.97x to 60.16x** speedups with peak throughput approaching 1,000,000 nodes/s.
 * **CPU Multi-Threading Scalability:**
   * On small graphs, thread synchronization and context switching overhead yield negligible gains (**0.84x to 1.01x**).
   * On large graphs, CPU parallelism exhibits strong scalability: dual-thread execution delivers a stable **1.41x to 1.67x** speedup, while scaling to 12 threads achieves **6.81x to 8.86x** acceleration.
@@ -291,14 +294,15 @@ Compute mean 6.80829 ms; population stddev 0 ms
   [0.486126, 0.0878042, 0.0151162, 0, 0.300069, 0.162624, 0, 0, ...]
   ... (1990 more rows)
 
-$ /home/cheng/cuda-gnn-inference/builddir/gnn --backend parallel --graph /home/cheng/cuda-gnn-inference/ogb_arxiv_graphsage_test/graph.bin_graph --features /home/cheng/cuda-gnn-inference/ogb_arxiv_graphsage_test/features.bin --model /home/cheng/cuda-gnn-inference/ogb_arxiv_graphsage_test/model.bin --threads 2
+$ /home/cheng/cuda-gnn-inference/builddir/gnn --backend sequential --graph /home/cheng/cuda-gnn-inference/ogb_arxiv_graphsage_test/graph.bin_graph --features /home/cheng/cuda-gnn-inference/ogb_arxiv_graphsage_test/graph_feats.bin_matrix --model /home/cheng/cuda-gnn-inference/ogb_arxiv_graphsage_test/model.txt --repetitions 1
 Compute mean 6.86281 ms; population stddev 0 ms
   [0.57143, 0.0582487, 0, 0.0590733, 0.238507, 0.149475, 0, 0, ...]
   [0.241749, 0.162322, 0, 0.102209, 0.164699, 0.125107, 0.147295, 0, ...]
   [0.486126, 0.0878042, 0.0151162, 0, 0.300069, 0.162624, 0, 0, ...]
   ... (1990 more rows)
 
-$ /home/cheng/cuda-gnn-inference/builddir/gnn --backend cuda --graph /home/cheng/cuda-gnn-inference/ogb_arxiv_graphsage_test/graph.bin_graph --features /home/cheng/cuda-gnn-inference/ogb_arxiv_graphsage_test/features.bin --model /home/cheng/cuda-gnn-inference/ogb_arxiv_graphsage_test/model.bin
+
+$ /home/cheng/cuda-gnn-inference/builddir/gnn --backend parallel --graph /home/cheng/cuda-gnn-inference/ogb_arxiv_graphsage_test/graph.bin_graph --features /home/cheng/cuda-gnn-inference/ogb_arxiv_graphsage_test/graph_feats.bin_matrix --model /home/cheng/cuda-gnn-inference/ogb_arxiv_graphsage_test/model.txt --repetitions 1
   [0.57143, 0.0582487, 0, 0.0590733, 0.238507, 0.149475, 0, 0, ...]
   [0.241749, 0.162322, 0, 0.102209, 0.164699, 0.125107, 0.300069, 0.162624, 0, 0, ...]
   [0.486126, 0.0878043, 0.0151162, 0, 0.300069, 0.162624, 0, 0, ...]
@@ -312,15 +316,15 @@ $ /home/cheng/cuda-gnn-inference/builddir/gnn --backend cuda --graph /home/cheng
 ---
 
 ## 4. Known Limitations 
-Out-of-Core Processing: The current CSC loader and CUDA workspace allocate the entire graph topology and embedding tables in contiguous host and device memory. Input graphs exceeding GPU VRAM capacity or host RAM are not currently supported; streaming or hierarchical storage remains a future extension.
+Out-of-Core Processing: The current CSC loader and CUDA workspace allocate the entire graph topology and embedding tables in contiguous host and device memory. Input graphs exceeding GPU VRAM capacity cannot be partitioned dynamically across streaming batches, causing out-of-memory faults.
 
 ---
 
 ## 5. References
 
-*   Alvaro Sanchez-Gonzalez, Nicolas Heess, Jost Tobias Springenberg, Josh Merel, Martin Riedmiller, Raia Hadsell, Peter Battaglia, *Graph Networks as Learnable Physics Engines for Inference and Control*, arXiv:1806.01261 (2018).
-*   Jie Zhou, Ganqu Cui, Shengding Hu, Zhengyan Zhang, Cheng Yang, Zhiyuan Liu, Lifeng Wang, Changcheng Li, Maosong Sun (2020), *Graph neural networks: A review of methods and applications*, AI Open, 1, 57–81.
-*  Benjamin Rhoads, Abigail Hogue, Lars Kotthoff, Samrat Choudhury (2025) *Structure-Property Linkage in Alloys Using Graph Neural Network and Explainable Artificial Intelligence*, Materials Basis.
-*  Yuchen Zhou, Hongtao Huo, Zhiwen Hou, Fanliang Bu (2023) *A deep graph convolutional neural network architecture for graph classification*, PLos One.
+*   Alvaro Sanchez-Gonzalez, Nicolas Heess, Jost Tobias Springenberg, Josh Merel, Martin Riedmiller, Raia Hadsell, Peter Battaglia, *Graph Networks as Learnable Physics Engines for Inference and Control*, Proceedings
+*   Jie Zhou, Ganqu Cui, Shengding Hu, Zhengyan Zhang, Cheng Yang, Zhiyuan Liu, Lifeng Wang, Changcheng Li, Maosong Sun (2020), *Graph neural networks: A review of methods and applications*, AI Open, Volume 1,  pages 57-81
+*  Benjamin Rhoads, Abigail Hogue, Lars Kotthoff, Samrat Choudhury (2025) *Structure-Property Linkage in Alloys Using Graph Neural Network and Explainable Artificial Intelligence*, Materials Basel
+*  Yuchen Zhou, Hongtao Huo, Zhiwen Hou, Fanliang Bu (2023) *A deep graph convolutional neural network architecture for graph classification*, PLos One
 *   Open Graph Benchmark: [https://ogb.stanford.edu](https://ogb.stanford.edu)
 *   Project internal specs: `doc/architecture.md`, `doc/semantics.md`, `doc/knowledge.md`, `doc/requirements.md`.

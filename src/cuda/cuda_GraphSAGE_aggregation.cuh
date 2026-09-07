@@ -9,7 +9,6 @@
 #include "gnn/layers/graph_sage.hpp"
 
 #include <cuda_runtime.h>
-
 #include <cstddef>
 #include <cstdint>
 
@@ -35,10 +34,12 @@ public:
 
     [[nodiscard]] const DeviceMatrix& aggregate(const DeviceGraph& graph,
                                                 const DeviceMatrix& input,
-                                                GraphSAGEAggregationType aggType) {
+                                                GraphSAGEAggregationType aggType,
+                                                int maxSamples = 0) {
         const auto n = static_cast<std::size_t>(graph.getNumNodes());
         ensureScratchCapacity(n, input.cols());
 
+        config_.maxSamples = maxSamples;
         cuda::launchGraphSAGEAggregate(graph, input, scratch_, aggType, config_);
         checkCuda(cudaDeviceSynchronize(), "GraphSAGE CUDA aggregation");
 
@@ -69,4 +70,4 @@ private:
     cuda::GraphSAGELaunchConfig config_;
 };
 
-} // namespace gnn::layers
+}

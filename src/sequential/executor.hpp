@@ -54,65 +54,77 @@ public:
         state.aggregate(graph, input, output);
     }
     void aggregateNeighbors(const CpuContext::GraphType& graph, const BufferType& input_feats,
-                            BufferType& output_feats,
-                            gnn::layers::GraphSAGEAggregationType aggType) const {
-        const std::uint64_t num_nodes = graph.getNumNodes();
-        const std::size_t feat_dim = input_feats.cols();
-        output_feats.setShape(num_nodes, feat_dim);
+                        BufferType& output_feats,
+                        gnn::layers::GraphSAGEAggregationType aggType, int layer = -1) const {
+    const std::uint64_t num_nodes = graph.getNumNodes();
+    const std::size_t feat_dim = input_feats.cols();
+    output_feats.setShape(num_nodes, feat_dim);
 
-        const auto* col_ptr = graph.colPtrBuffer().data();
-        const auto* row_ind = graph.rowIndBuffer().data();
-        const auto* weights = graph.weightsBuffer().data();
+    const auto* col_ptr = graph.colPtrBuffer().data();
+    const auto* row_ind = graph.rowIndBuffer().data();
+    const auto* weights = graph.weightsBuffer().data();
 
-        for (std::uint64_t u = 0; u < num_nodes; ++u) {
-            float* out_ptr = output_feats.data() + u * feat_dim;
+    int maxSamples = 0;
+    if (layer >= 0) {
+        maxSamples = (layer == 0) ? 25 : std::max(10 - layer * 2, 5);
+    }
 
-            const std::uint64_t start = col_ptr[u];
-            const std::uint64_t end = col_ptr[u + 1];
-            const std::uint64_t degree = end - start;
+    for (std::uint64_t u = 0; u < num_nodes; ++u) {
+        float* out_ptr = output_feats.data() + u * feat_dim;
 
-            if (degree == 0) {
-                std::fill_n(out_ptr, feat_dim, 0.0f);
-                continue;
+        const std::uint64_t start = col_ptr[u];
+        const std::uint64_t end = col_ptr[u + 1];
+        const std::uint64_t degree = end - start;
+
+        if (degree == 0) {
+            std::fill_n(out_ptr, feat_dim, 0.0f);
+            continue;
+        }
+
+        const std::uint64_t limit = (maxSamples > 0 && degree > maxSamples) ? maxSamples : degree;
+
+        if (aggType == gnn::layers::GraphSAGEAggregationType::MEAN ||
+            aggType == gnn::layers::GraphSAGEAggregationType::SUM) {
+            std::fill_n(out_ptr, feat_dim, 0.0f);
+            float total_weight = 0;
+
+            for (std::uint64_t e = 0; e < limit; ++e) {
+                const std::uint64_t edge_offset = (maxSamples > 0 && degree > maxSamples) ? (e * degree / maxSamples) : e;
+                const std::uint64_t i = start + edge_offset;
+
+                const std::uint64_t v = row_ind[i];
+                const bool mean = aggType == gnn::layers::GraphSAGEAggregationType::MEAN;
+                if (mean && v == u)
+                    continue;
+                const float weight = (!mean && graph.hasEdgeWeights()) ? weights[i] : 1.0f;
+                total_weight += weight;
+                const float* in_ptr = input_feats.data() + v * feat_dim;
+                for (std::size_t d = 0; d < feat_dim; ++d) {
+                    out_ptr[d] += weight * in_ptr[d];
+                }
             }
 
-            if (aggType == gnn::layers::GraphSAGEAggregationType::MEAN ||
-                aggType == gnn::layers::GraphSAGEAggregationType::SUM) {
-                std::fill_n(out_ptr, feat_dim, 0.0f);
-                float total_weight = 0;
-
-                for (std::uint64_t i = start; i < end; ++i) {
-                    const std::uint64_t v = row_ind[i];
-                    const bool mean = aggType == gnn::layers::GraphSAGEAggregationType::MEAN;
-                    if (mean && v == u)
-                        continue;
-                    const float weight = (!mean && graph.hasEdgeWeights()) ? weights[i] : 1.0f;
-                    total_weight += weight;
-                    const float* in_ptr = input_feats.data() + v * feat_dim;
-                    for (std::size_t d = 0; d < feat_dim; ++d) {
-                        out_ptr[d] += weight * in_ptr[d];
-                    }
+            if (aggType == gnn::layers::GraphSAGEAggregationType::MEAN) {
+                const float inv_deg = total_weight > 0 ? 1.0f / total_weight : 0.0f;
+                for (std::size_t d = 0; d < feat_dim; ++d) {
+                    out_ptr[d] *= inv_deg;
                 }
+            }
+        } else if (aggType == gnn::layers::GraphSAGEAggregationType::MAX) {
+            std::fill_n(out_ptr, feat_dim, std::numeric_limits<float>::lowest());
+            for (std::uint64_t e = 0; e < limit; ++e) {
+                const std::uint64_t edge_offset = (maxSamples > 0 && degree > maxSamples) ? (e * degree / maxSamples) : e;
+                const std::uint64_t i = start + edge_offset;
 
-                if (aggType == gnn::layers::GraphSAGEAggregationType::MEAN) {
-                    const float inv_deg = total_weight > 0 ? 1.0f / total_weight : 0.0f;
-                    for (std::size_t d = 0; d < feat_dim; ++d) {
-                        out_ptr[d] *= inv_deg;
-                    }
-                }
-            } else if (aggType == gnn::layers::GraphSAGEAggregationType::MAX) {
-                std::fill_n(out_ptr, feat_dim, std::numeric_limits<float>::lowest());
-                for (std::uint64_t i = start; i < end; ++i) {
-                    const std::uint64_t v = row_ind[i];
-                    const float* in_ptr = input_feats.data() + v * feat_dim;
-                    for (std::size_t d = 0; d < feat_dim; ++d) {
-                        out_ptr[d] = std::max(out_ptr[d], in_ptr[d]);
-                    }
+                const std::uint64_t v = row_ind[i];
+                const float* in_ptr = input_feats.data() + v * feat_dim;
+                for (std::size_t d = 0; d < feat_dim; ++d) {
+                    out_ptr[d] = std::max(out_ptr[d], in_ptr[d]);
                 }
             }
         }
     }
-
+}
 private:
     template <typename F> static void forRows(std::size_t count, F operation) {
         for (std::size_t i = 0; i < count; ++i)

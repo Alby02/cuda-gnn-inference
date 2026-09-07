@@ -21,7 +21,7 @@ This pair is selected because it provides two distinct message-passing rules whi
 - both support full-batch inference over the same sparse graph and dense node-feature layout; and
 - both are available in established external frameworks, allowing equivalent correctness and performance comparisons.
 
-Changing either selected architecture requires updating this document's equations, parameter contracts, fixtures, backend capability checks, workload bundles, and external-framework mapping. The minimum requirement remains at least two GNN architectures.
+Changing either selected architecture requires updating this document's equations, parameter contracts, fixtures, backend capability checks, workload input files, and external-framework mapping. The minimum requirement remains at least two GNN architectures.
 
 ### 1.2 Selected implementation mappings
 

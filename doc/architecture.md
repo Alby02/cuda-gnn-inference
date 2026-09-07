@@ -39,166 +39,159 @@ flowchart LR
         Public["Public datasets"]
         Synthetic["Synthetic generators"]
         Convert["Converter and validator"]
-        Bundle["Versioned dataset/model bundle"]
+        InputFiles["Graph, feature and model files"]
 
         Public --> Convert
         Synthetic --> Convert
-        Convert --> Bundle
+        Convert --> InputFiles
     end
 
     subgraph Native["Native C++/CUDA application"]
         CLI["CLI and benchmark configuration"]
         Engine["Native inference engine"]
         NativeRecord["Native output and measurements"]
-        Verify["Correctness verifier"]
 
         CLI --> Engine
         Engine --> NativeRecord
     end
 
     subgraph External["Required external comparison"]
+        Verify["Python correctness verifier"]
         Framework["External-framework runner"]
         ExternalRecord["Compatible framework record"]
 
         Framework --> ExternalRecord
     end
 
-    Bundle --> Engine
-    Bundle --> Framework
+    InputFiles --> Engine
+    InputFiles --> Framework
 
     NativeRecord --> Verify
     ExternalRecord --> Verify
     Verify --> Results["Verified CSV data, plots, and report"]
 ```
 
-The bundle is the interoperability boundary. The native executable and external-framework runner consume equivalent topology, features, parameters, and model configuration, but they are separate programs. Offline conversion and framework execution are not dependencies of the native inference engine.
+Separate graph, feature and model files form the interoperability boundary. The native executable and external-framework runner consume equivalent topology, features, parameters, and model configuration, but they are separate programs. Offline conversion and framework execution are not dependencies of the native inference engine.
 
 ## 4. Native engine composition
 
-This section is the normative home for model/layer orchestration, executor and strategy responsibilities, workspace ownership, and their extension boundaries. The next diagram opens the `Native inference engine` box and combines component relationships with control and data flow. Boxes labelled “concept” are compile-time requirements, not base classes and not runtime objects.
+This section is the normative home for model/layer orchestration, executor responsibilities, workspace ownership, and their extension boundaries. The next diagram opens the `Native inference engine` box and combines component relationships with control and data flow. Boxes labelled “concept” are compile-time requirements, not base classes and not runtime objects.
 
 ```mermaid
 flowchart TB
-    subgraph Input["Loading and common preparation"]
+    subgraph Input["Loading and workload representation"]
         Loader["Loader"]
-        Semantics["Semantic preparation<br/>validate + compute required metadata"]
-        Workload["PreparedWorkload<br/>CSC graph + features + model + metadata"]
+        Workload["HostWorkload<br/>CSC graph + input features + model"]
 
-        Loader --> Semantics
-        Semantics --> Workload
+        Loader --> Workload
     end
 
     subgraph Common["Common model orchestration"]
-        Runtime["InferenceRuntime<br/>selects one concrete composition"]
-        Runner["execute_model&lt;Executor&gt;()<br/>iterates layers + swaps buffers"]
-        Model["GnnModel<br/>ordered, potentially mixed layers"]
+        Runtime["InferenceRuntime&lt;Executor&gt;<br/>iterates layers + swaps buffers"]
+        Model["Model<br/>ordered, potentially mixed layers"]
         Layer["Layer descriptor<br/>type + parameters + configuration"]
-        Forward["forward_layer(layer, executor, workspace)<br/>owns layer operation order"]
+        Forward["forward_layer(layer, graph, executor, workspace)<br/>owns layer operation order"]
 
-        Runtime --> Runner
-        Runner -->|"iterates"| Model
-        Model -->|"provides one layer"| Layer
-        Runner -->|"once per layer"| Forward
+        Runtime -->|"iterates via std::visit"| Model
+        Model -->|"provides layer"| Layer
+        Runtime -->|"once per layer"| Forward
         Layer -->|"configuration and parameters"| Forward
     end
 
     subgraph Execution["Hardware execution"]
         Executor["Executor concept<br/>typed operations required by layers"]
         SeqExecutor["SequentialExecutor"]
-        OmpExecutor["OpenMpExecutor&lt;Strategy&gt;"]
-        CudaExecutor["CudaExecutor&lt;Strategy&gt;"]
+        OmpExecutor["ParallelExecutor"]
+        CudaExecutor["CudaExecutor"]
 
         SeqExecutor -.->|"models concept"| Executor
         OmpExecutor -.->|"models concept"| Executor
         CudaExecutor -.->|"models concept"| Executor
     end
 
-    subgraph Mapping["Work-mapping policies"]
-        SeqLoops["Sequential loops"]
-        OmpSelected["Selected OpenMP strategy"]
-        OmpAdditional["Additional OpenMP strategies<br/>(when implemented)"]
-        CudaSelected["Selected CUDA strategy"]
-        CudaAdditional["Additional CUDA strategies<br/>(when implemented)"]
+    subgraph Mapping["Work-mapping implementations"]
+        SeqLoops["Sequential pull loops"]
+        OmpSelected["OpenMP static destination scheduling + SIMD"]
+        CudaSelected["CUDA 1D grid-stride element mapping"]
     end
 
-    subgraph Memory["Reusable memory"]
-        Workspace["Workspace concept<br/>current | next | scratch views"]
-        HostWorkspace["HostWorkspace"]
-        DeviceWorkspace["CudaWorkspace<br/>RAII device buffers + events"]
+    subgraph Memory["Reusable memory & state"]
+        Workspace["Workspace concept<br/>current | next | scratch | branch"]
+        HostWorkspace["CpuContext / ParallelCpuContext<br/>host buffers + GCN aggregation state"]
+        DeviceWorkspace["CudaWorkspace<br/>device buffers + device GCN state + events"]
 
         HostWorkspace -.->|"models concept"| Workspace
         DeviceWorkspace -.->|"models concept"| Workspace
     end
 
-    Workload --> Runtime
-    Runtime -->|"constructs/selects once"| SeqExecutor
-    Runtime -->|"constructs/selects once"| OmpExecutor
-    Runtime -->|"constructs/selects once"| CudaExecutor
-
-    Workload -->|"initializes host/device views"| Workspace
-    Workload -->|"graph, metadata, parameters"| Executor
+    Workload -->|"prepared into"| Workspace
+    Runtime -->|"executes"| Workspace
     Forward -->|"typed operation calls"| Executor
-    Forward -->|"requests named buffers"| Workspace
+    Forward -->|"reads/writes named buffers"| Workspace
     Executor -->|"reads and writes"| Workspace
 
     SeqExecutor --> SeqLoops
     OmpExecutor --> OmpSelected
-    OmpExecutor -.-> OmpAdditional
     CudaExecutor --> CudaSelected
-    CudaExecutor -.-> CudaAdditional
 
     SeqExecutor --> HostWorkspace
     OmpExecutor --> HostWorkspace
     CudaExecutor --> DeviceWorkspace
 
-    Runner --> Output["N x F_out output + measurements"]
+    Runtime --> Output["N x F_out output + measurements"]
 ```
 
 The principal composition is:
 
 ```text
-execute_model<ConcreteExecutor>(model, executor, workspace)
-    -> forward_layer(concrete_layer, executor, workspace)
-        -> executor operations
-            -> selected work-mapping strategy
-                -> host or CUDA workspace
+InferenceRuntime<ConcreteExecutor>::run(workspace)
+    -> forward_layer(concrete_layer, graph, executor, workspace)
+        -> executor operations (rowByColumn, aggregateGCN, aggregateNeighbors, etc.)
+            -> selected hardware execution (sequential, OpenMP static + SIMD, CUDA grid-stride)
+                -> host or CUDA workspace buffers (current, next, scratch, branch)
 ```
 
-The arrows do not mean that one monolithic executor owns the model algorithm. `execute_model` owns model iteration. `forward_layer` owns the instructions and operation order for a specific layer type. The executor implements those operations for a hardware family. Its strategy decides how the work is partitioned or which kernel variant is launched. The workspace owns reusable memory.
+The arrows do not mean that one monolithic executor owns the model algorithm. `InferenceRuntime::run` owns model iteration and buffer swapping. `forward_layer` owns the instructions and operation order for a specific layer type. The executor implements those operations for a hardware family without knowledge of the overarching model pipeline. The workspace owns reusable memory and backend-specific aggregation state.
 
 ### 4.1 Why the layer does not return a pipeline
 
-A layer is a small parameter/configuration value. The corresponding `forward_layer` overload is its executable algorithm:
+A layer is a lightweight parameter and configuration container. The corresponding `forward_layer` overload is its executable algorithm. For GCN:
 
 ```cpp
-template <class Executor>
-void forward_layer(const GCNLayer& layer,
-                   Executor& executor,
-                   typename Executor::Workspace& workspace) {
-    executor.linear(workspace.current(), layer.weights(), workspace.transformed());
-    executor.normalized_aggregate(workspace.transformed(), workspace.next());
-    executor.bias_and_activate(workspace.next(), layer.bias(), layer.activation());
+template <Executor E, typename WeightMatrix, typename BiasStorage, typename Graph>
+void forward_layer(const GCNLayer<WeightMatrix, BiasStorage>& layer,
+                   const Graph& graph,
+                   E& executor,
+                   typename E::WorkspaceType& workspace) {
+    executor.rowByColumn(workspace.current(), layer.getWNeigh(), workspace.scratch());
+    executor.aggregateGCN(graph, workspace.scratch(), workspace.getGCNState(), workspace.next());
+    if (layer.hasBias())
+        executor.biasAdd(workspace.next(), layer.getBias());
+    if (layer.getActType() == GCNActivationType::RELU)
+        executor.relu(workspace.next());
 }
 ```
 
 This typed C++ control flow is the pipeline. The layer does not allocate and return a command list, graph, or type-erased pipeline object. Avoiding such an intermediate object preserves compile-time checking and lets CUDA executor calls enqueue kernels without adding per-operation runtime dispatch.
 
+For mean GraphSAGE, `forward_layer` executes neighbor aggregation into `workspace.scratch()`, performs neighbor linear transformation into `workspace.next()`, transforms current features through the optional self-branch into `workspace.branch()`, combines branches with element-wise addition, and applies optional bias and activation.
+
 Every supported layer type receives a `forward_layer` overload describing its operation sequence. A model may therefore contain, for example, `GCN -> GraphSAGE -> GCN`, provided adjacent feature dimensions match and the selected executor supports every layer.
 
-The architecture does not require one particular heterogeneous storage mechanism. A closed set of layer types may use `std::variant`; another type-safe layer-boundary dispatch mechanism is also valid. Dispatch occurs at most once per graph-wide layer. No visit, virtual call, or string lookup occurs inside node, edge, or feature loops.
+Heterogeneous layer storage is handled with `std::variant`. Dispatch occurs at most once per graph-wide layer via `std::visit` in `InferenceRuntime::run`. No virtual call, type switch, or string lookup occurs inside node, edge, or feature loops.
 
 ### 4.2 Responsibility summary
 
 | Component | Owns | Does not own |
 | --- | --- | --- |
-| `PreparedWorkload` | Validated graph, input features, fixed model, and prepared semantic metadata | Execution buffers or hardware policy |
-| `GnnModel` / layer descriptors | Ordered layer types, parameters, dimensions, and configuration | CPU threads, CUDA launches, scratch allocation |
-| `execute_model` | Layer iteration and current/next buffer swapping | Layer-specific mathematics or work mapping |
-| `forward_layer` | Instructions and operation order for that layer type | Hardware loops, kernel launches, buffer ownership |
-| `Executor` | Hardware implementation of typed operations, error/synchronization hooks | Model/layer semantics or strategy selection policy |
-| `Strategy` | Vertex/edge/feature partitioning and concrete kernel/loop mapping | Layer sequence or parameter ownership |
-| `Workspace` | Reusable host/device current, next, transformed, and scratch storage | Mathematical decisions |
-| `InferenceRuntime` | One outer selection and construction of a compatible executor/strategy/workspace composition | Per-node, per-edge, or per-feature dispatch |
+| `HostWorkload` | Validated graph, input features, and fixed model | Execution buffers, device memory, or backend policies |
+| `Model` / layer descriptors | Ordered layer types, parameters, dimensions, and configuration | CPU threads, CUDA launches, scratch allocation |
+| `InferenceRuntime` | Layer iteration via `std::visit` and current/next buffer swapping | Layer-specific mathematics or work mapping |
+| `forward_layer` | Instructions and operation order for that layer type | Hardware loops, kernel launches, buffer allocation |
+| `Executor` | Hardware implementation of typed operations (`rowByColumn`, `aggregateGCN`, `aggregateNeighbors`, `add`, `biasAdd`, `relu`) | Model/layer semantics or pipeline sequencing |
+| Work-mapping policy | Concrete thread/block loop or kernel partitioning within each executor | Layer sequence or parameter ownership |
+| `Workspace` | Reusable host/device feature buffers (`current`, `next`, `scratch`, `branch`) and backend GCN aggregation state | Mathematical decisions or model iteration |
+| Backend runners (`run_sequential`, `run_parallel`, `run_cuda`) | CLI argument parsing, setup, timing boundaries, warmup/repetition loops, and output recording | Layer algorithms or executor inner loops |
 
 ## 5. Preparation and selection terminology
 
@@ -206,9 +199,9 @@ The high-level diagram retains three concise labels. In this architecture they h
 
 | Label | Exact responsibility |
 | --- | --- |
-| Semantic preparation | Validate topology/model compatibility and compute immutable common or layer-specific metadata. For GCN this includes degrees, inverse square roots, self-loop flags, and message counts. It does not execute layers. |
-| Prepared workload | Immutable validated host-side graph, features, model, and metadata. It does not contain a polymorphic backend. |
-| Strategy dispatch | The runtime's single outer selection of a compatible concrete executor, strategy, and workspace. It is not repeated inside inference loops. |
+| Semantic preparation | Compute immutable layer-specific metadata required by aggregation, such as GCN degrees, inverse square roots, and self-loop flags. This is encapsulated within the workspace's aggregation state (`GCNAggregationState` / `CudaGCNAggregationState`) and prepared once per workload. |
+| Host workload | Immutable validated host-side graph (`HostGraphCSC`), input features (`HostMatrix`), and model definition (`HostModel`). It does not hold backend execution buffers or device state. |
+| Backend dispatch | The outer program startup selection based on CLI arguments (`--backend sequential|parallel|cuda`) dispatching to the appropriate backend runner and concrete executor/workspace composition. |
 
 CUDA allocation/upload and host workspace reservation happen after this selection when the concrete workspace is constructed. They are execution setup, not semantic preparation.
 
@@ -225,16 +218,16 @@ The canonical required representation is incoming-neighbor CSC:
 - the incoming sources for destination `v` are stored in `row_ind[col_ptr[v]..col_ptr[v+1])`;
 - an optional scalar weight array is aligned one-to-one with `row_ind`;
 - absent weights mean weight `1.0f`, while stored weights are finite and strictly positive;
-- source IDs inside a column are sorted; and
-- duplicate ordered pairs are rejected unless a documented converter rule combines them before loading.
+- source IDs inside a column are strictly increasing; and
+- duplicate ordered pairs are rejected during validation.
 
 The graph is immutable during an inference run. CSC is used because the sequential and vertex-centric paths pull all incoming messages for one destination and can own that destination's output row without synchronization.
 
-Although the minimum requirements permit a single orientation, this implementation selects support for both directed and undirected graphs. A simple `GraphOrientation` enum in graph metadata distinguishes them. Both use the same CSC storage and incoming-neighbor traversal contract; the undirected case adds reciprocal-edge validation rather than different layer or model definitions. Layers consume the common graph view and do not branch on orientation. Regardless of the enum value, an adjacency entry always means `source -> destination`.
+Graph storage uses `graph::GraphCSC<IndexStorage, WeightStorage>` (`HostGraphCSC` on CPU, device graph on CUDA). Both directed and undirected graphs are supported, distinguished by `isDirected()`. Both use the same CSC incoming-neighbor traversal contract; the undirected case adds reciprocal-edge and weight equality validation via `GraphFactory::validate`. Layers consume the common graph interface and do not branch on orientation. Regardless of the orientation flag, an adjacency entry always means `source -> destination`.
 
 ### 6.2 Dense matrices
 
-Node features, intermediate features, weights, biases, and outputs use `float32`. Dense node and parameter matrices use row-major storage:
+Node features, intermediate features, weights, biases, and outputs use `float32`. Dense node and parameter matrices use row-major storage through `gnn::Matrix<Storage>`:
 
 ```text
 element(row, column) = data[row * number_of_columns + column]
@@ -242,71 +235,72 @@ element(row, column) = data[row * number_of_columns + column]
 
 The input feature matrix has shape `N x F_in`. Layer `l` owns the parameter matrix or matrices required by its semantic contract, each with input/output dimensions compatible with `F_l` and `F_(l+1)`, plus an optional bias of length `F_(l+1)`. The final result has shape `N x F_out`.
 
-Owning host containers may expose small non-owning views (`pointer + shape`) to kernels or tight loops. Views never outlive their owner.
+On the host, `Matrix<HostBuffer<float>>` uses `HostBuffer<T>` with RAII heap ownership. On CUDA, `Matrix<DeviceBuffer<float>>` uses `DeviceBuffer<T>` non-owning views over device memory owned by `cuda::Allocation`. Reusable workspace matrices allow adjusting logical dimensions via `setShape(rows, cols)` within preallocated physical capacity without reallocation.
 
 ### 6.3 Generic model and mixed layers
 
-`GnnModel` is an ordered, non-empty collection of layer descriptors. Layers may all have the same type or may be mixed. Each descriptor contains the fixed parameters and configuration required by its layer algorithm, including its input and output dimensions.
+`Model<Layers...>` is an ordered, non-empty collection of layer descriptors stored as `std::variant<Layers...>`. Layers may all have the same type or may be mixed. Each descriptor contains the fixed parameters and configuration required by its layer algorithm, including its input and output dimensions.
 
 For example, each `GCNLayer` contains:
 
 - input and output dimensions;
-- weight matrix;
+- neighbor weight matrix (`W_neigh`);
 - optional bias; and
 - activation (`NONE` or `RELU`).
 
-Each mean `GraphSageLayer` similarly contains its input/output dimensions, separate self and neighbor weight matrices, optional bias, and activation.
+Each `GraphSAGELayer` similarly contains its input/output dimensions, neighbor weight matrix (`W_neigh`), optional self weight matrix (`W_self`), optional bias, aggregation mode (`MEAN`, `SUM`, `MAX`), and activation (`NONE` or `RELU`).
 
 A mixed model such as `GCN -> GraphSAGE -> GCN` is structurally valid when:
 
 - every layer type has a corresponding `forward_layer` algorithm;
 - the output dimension of layer `l` equals the input dimension of layer `l + 1`;
-- the graph contains any data required by every layer, such as edge features for an edge-aware layer;
+- the graph contains any data required by every layer;
 - the selected executor models every capability required by those algorithms; and
-- the selected strategies support the operations used by every layer.
+- the selected workspace provides the scratch and branch capacity required across all layers.
 
-Compatibility is checked before workspace allocation or inference. An unsupported layer/executor combination produces a diagnostic rather than failing during a layer.
+Compatibility is checked during model construction and workload validation. An unsupported layer/executor combination produces a diagnostic rather than failing during a layer.
 
-The selected model types are GCN and mean-aggregator GraphSAGE, as recorded in `semantics.md`. Both execute through the sequential, OpenMP, and CUDA executor families. One complete selected OpenMP mapping and one complete selected CUDA mapping are sufficient for the minimum requirement; additional mappings may reuse the same executor and layer boundaries. The generic model boundary permits mixed layers without making mixed execution mandatory.
+The selected model types are GCN and mean-aggregator GraphSAGE, as recorded in `semantics.md`. Both execute through the sequential, OpenMP, and CUDA executor families.
 
 ### 6.4 Prepared semantic metadata
 
-Before a run, common code validates the graph/model and computes immutable values required by the model's layer algorithms. For GCN layers these values include:
+Before a run, workspace preparation computes immutable values required by the model's layer algorithms. For GCN layers these values include:
 
-- weighted incoming degree including the effective self-loop policy;
-- `1 / sqrt(degree)` for each node;
-- whether each node already has an explicit self-loop; and
-- stored-edge and effective-message counts used for validation and throughput.
+- incoming degree normalization factors $1 / \sqrt{\tilde{d}_v}$ where $\tilde{d}_v$ accounts for explicit or implicit self-loops; and
+- explicit self-loop flags per node (`hasExplicitSelfLoop`).
 
-For mean GraphSAGE, prepared metadata may include the total non-self incoming weight per destination and explicit identification of self entries that must be excluded from the neighbor mean.
+On CPU, this metadata preparation is performed by `GCNAggregationState` (sequential) or `GCNAggregationStateParallel` (OpenMP). On CUDA, it is computed directly on the GPU via `launchGcnPrepareMetadata` (`gcnPrepareMetadataKernel`), avoiding host-side derivation and extra transfer overhead. The derived metadata is stored in the workspace's GCN aggregation state and reused across repetitions.
 
-Other layer types may define additional immutable metadata preparation. Such preparation belongs beside that layer's semantic definition and is shared by all executors implementing the layer. It must not allocate executor work buffers or choose a parallel mapping.
-
-This validation and derivation step is what the diagrams call **semantic preparation**. It is computed once per graph/model configuration, not once per layer repetition. The exact GCN and GraphSAGE aggregation and self-node rules come from [semantics.md](semantics.md); executors and strategies may not reinterpret them.
+For mean GraphSAGE, neighborhood traversal excludes self entries ($u == v$) on the fly, computing the non-self incoming mean or producing zero for isolated nodes.
 
 ### 6.5 Logical input and output
 
-The architecture uses simple value records rather than a large runtime object graph. The following names are illustrative; their responsibilities are normative:
+The architecture uses simple value records rather than a large runtime object graph. The following structures represent the key data boundaries:
 
 ```cpp
-struct PreparedWorkload {
-    CscGraph graph;
-    DenseMatrix<float> node_features;
-    GnnModel model;
-    PreparedMetadata metadata;
+struct HostWorkload {
+    graph::HostGraphCSC graph;
+    layers::HostMatrix input;
+    HostModel model;
 };
 
 struct RunOptions {
-    BackendId backend;
-    StrategyId strategy;
-    int threads;
-    int warmups;
-    int repetitions;
+    std::string backend = "sequential"; // "sequential", "parallel", "cuda"
+    std::string graph;                  // Graph topology binary path
+    std::string features;               // Node-feature matrix path
+    std::string model;                  // Model manifest path
+    std::string output;                 // Benchmark CSV path
+    std::string embeddings;             // Final output embedding matrix path
+    int threads = 1;                    // OpenMP worker threads
+    int blockSize = 256;                // CUDA block size
+    int warmups = 1;                    // Warmup iterations
+    int repetitions = 10;               // Measured repetitions
 };
 
-struct RunResult {
-    DenseMatrix<float> output;
-    Measurements measurements;
+struct Measurements {
+    std::vector<Sample> samples;        // Individual run timing samples
+    double meanMs = 0;
+    double stddevMs = 0;
 };
 ```
 
@@ -316,223 +310,206 @@ This sketch is a responsibility map, not a requirement to use these exact names 
 
 The executable follows a visible, testable sequence:
 
-1. Parse CLI/configuration arguments.
-2. Load graph topology, node features, layer parameters, and model configuration.
-3. Validate file structure, indices, dimensions, and model compatibility.
-4. Compute the shared and layer-specific semantic metadata required by the model.
-5. Select one compatible executor, strategy, and workspace composition.
-6. Construct the reusable workspace; CUDA also allocates device buffers and uploads immutable and input data.
-7. Perform warm-up runs.
-8. Perform repeated timed inference runs.
-9. For CUDA, download the final output when required.
-10. Compare the output with the sequential result.
-11. Emit diagnostics and a machine-readable benchmark record.
-
-Conversion from public/framework formats happens before step 1 and is never included in native inference timing.
+1. Parse CLI options: `--backend sequential|parallel|cuda`, `--graph`, `--features`, `--model`, `--warmups`, `--repetitions`, `--output`, `--embeddings`, OpenMP `--threads`, and CUDA `--block-size`. When graph, features, or model paths are omitted, the program runs the built-in demo workload (`demo::makeCpuDemo()`).
+2. Dispatch to the selected backend runner function: `run_sequential`, `run_parallel`, or `run_cuda`.
+3. Load the workload: read the binary CSC graph, dense node-feature matrix, and model manifest into `HostWorkload`.
+4. Prepare the workspace (`workspace.prepare(workload)`): validate graph/feature/model consistency, preallocate four working buffers (`current`, `next`, `scratch`, `branch`) sized to `N x maximumFeatureWidth(model)`, precompute backend GCN aggregation metadata (`GCNAggregationState` on CPU or `CudaGCNAggregationState` on device), and upload graph/model/input data to the device for CUDA.
+5. Perform warmup iterations outside measurement: restore input via `workspace.resetInput()`, execute inference via `runtime.run(workspace)`.
+6. Perform repeated measured iterations: restore input (`reset_ms`), record start time, execute `runtime.run(workspace)`, synchronize and record compute duration (`compute_ms`).
+7. Retrieve final output: borrow host matrix for CPU backends; download from device to host for CUDA (`download_ms`).
+8. Emit results: record timing samples and statistics in benchmark CSV (`output`), optionally export binary embedding matrix (`embeddings`), and print demo preview if in demo mode.
 
 ### 7.1 Timing boundaries
 
-At minimum, results distinguish:
+Measurements distinguish distinct execution phases:
 
-| Measurement | Includes |
+| Measurement | Meaning and Scope |
 | --- | --- |
-| Load/setup | File I/O, validation, metadata computation, allocation, and initial transfers |
-| Compute | Only the repeated multi-layer forward pass; CUDA uses events and synchronization |
-| End-to-end inference | Executor/workspace setup and transfers needed for a run, forward pass, and output retrieval; exact boundary recorded |
+| `load_ms` | File I/O: reading graph binary, node feature matrix, and parsing model manifest |
+| `setup_ms` | Workspace preparation: memory allocation, buffer sizing, and GCN metadata preparation (excluding device upload for CUDA) |
+| `upload_ms` | Host-to-device transfers of graph, model weights, and initial features (isolated within CUDA workspace preparation; zero on CPU) |
+| `reset_ms` | Per-repetition restoration of original input features into `workspace.current()` |
+| `compute_ms` | Steady-state multi-layer forward pass (`runtime.run`); timed with `std::chrono::steady_clock` on CPU and CUDA events (`cudaEventRecord`, `cudaEventSynchronize`, `cudaEventElapsedTime`) on GPU |
+| `download_ms` | Device-to-host transfer of the final embedding matrix (CUDA only; zero on CPU where output is borrowed in-place) |
+| `end_to_end_ms` | Per-repetition total of input reset and compute iteration |
 
-The benchmark runner must state whether setup is included rather than hiding it behind a generic `run` duration.
+The benchmark runner records these distinct fields rather than hiding setup, upload, or download behind a single generic duration.
 
 ## 8. Multi-layer model execution
 
-`execute_model` iterates through the generic model and invokes the correct layer-specific `forward_layer` algorithm through the selected type-safe layer-boundary mechanism. Each overload invokes typed executor operations but remains the owner of that layer's algorithm.
+`InferenceRuntime<Executor>::run(workspace)` iterates through the model's layers and invokes the correct layer-specific `forward_layer` algorithm via `std::visit`. Each overload invokes typed executor operations but remains the owner of that layer's algorithmic sequence. After each layer, `workspace.swapBuffers()` exchanges `current` and `next`.
 
 ### 8.1 GCN layer execution
 
-For GCN, `forward_layer` expresses the operation defined in [semantics.md](semantics.md): normalized message aggregation, dense linear transformation, optional bias, and activation.
+For GCN, `forward_layer` expresses the operation defined in [semantics.md](semantics.md):
 
-Either of these mathematically equivalent orders is allowed:
+1. Dense linear feature transformation: `executor.rowByColumn(workspace.current(), layer.getWNeigh(), workspace.scratch())`, computing $H^{(l)} W_{neigh} \to \text{scratch}$.
+2. Degree-normalized aggregation: `executor.aggregateGCN(graph, workspace.scratch(), workspace.getGCNState(), workspace.next())`, pulling incoming neighbors and applying $\widehat{D}^{-1/2} \widehat{A} \widehat{D}^{-1/2} (\text{scratch}) \to \text{next}$.
+3. Optional bias addition: `executor.biasAdd(workspace.next(), layer.getBias())`.
+4. Optional activation: `executor.relu(workspace.next())` if activation is `RELU`.
 
-- transform features, then aggregate; or
-- aggregate features, then transform.
-
-The chosen order is a compile-time or setup-time execution-policy property exposed to `forward_layer`. The layer function selects the appropriate valid sequence; it is not replaced by an executor-owned GCN implementation. The chosen order is recorded in benchmark metadata because it changes work and memory traffic when `F_in != F_out`.
+Performing linear transformation before message aggregation is the selected order: it projects features into the layer's output dimension prior to neighbor accumulation and is recorded in benchmark metadata.
 
 ### 8.2 GraphSAGE layer execution
 
 For mean GraphSAGE, `forward_layer` requests:
 
-1. a weighted mean of non-self incoming neighbors, producing zero for an empty neighbor set;
-2. a neighbor-branch linear transformation;
-3. a separate self-branch linear transformation of the current node representation;
-4. combination of the two branches; and
-5. optional bias followed by activation.
+1. Neighbor aggregation: `executor.aggregateNeighbors(graph, workspace.current(), workspace.scratch(), layer.getAggType())`, computing a non-self incoming neighbor mean into scratch (producing zero for empty neighborhoods).
+2. Neighbor linear transformation: `executor.rowByColumn(workspace.scratch(), layer.getWNeigh(), workspace.next())`.
+3. Optional self-branch: `executor.rowByColumn(workspace.current(), layer.getWSelf(), workspace.branch())`, followed by branch combination via `executor.add(workspace.next(), workspace.branch(), workspace.next())`.
+4. Optional bias addition and activation (`biasAdd`, `relu`).
 
-The neighbor mean and neighbor linear transformation may be associated in either valid order. Stored self-loop entries are excluded from the neighbor mean, and GraphSAGE does not request GCN's implicit self-loop contribution. Executors expose the required typed operations; these semantic decisions remain in the GraphSAGE `forward_layer` algorithm.
+Stored self-loops ($u == v$) are excluded from the neighbor mean on the fly during incoming CSC traversal, and GraphSAGE does not include GCN's implicit self-loop contribution.
 
 ### 8.3 Workspace use
 
-Two reusable feature buffers hold the current and next layer matrices. Their roles swap after each layer. Each layer algorithm declares its scratch requirements without defining hardware allocation. The workspace reserves capacity for the maximum compatible requirements across the complete model before timed repetitions.
+The public interface is declared in the `Workspace` concept:
+`prepare(workload)`, `resetInput()`, `getGraph()`, `getModel()`, `getOutput()`,
+`current()`, `next()`, `scratch()`, `branch()`, `getGCNState()`, `swapBuffers()`, and `capacityBytes()`.
+Allocation and transfer helpers are private. `prepare()` returns `WorkspacePreparation` containing upload timing metadata, allowing the runner to isolate upload from the rest of setup.
 
-There must be no full feature-matrix allocation, graph conversion, model reconstruction, or host/device round trip between layers in a timed steady-state run.
+`CpuContext` and `ParallelCpuContext` borrow the immutable host workload and own their working buffers; the caller keeps the workload alive. `CudaWorkspace` uploads and owns the device representation.
+`InferenceRuntime::run(workspace)` is the single execution entry point and only visits layers and swaps buffers. The separate backend runners prepare once, reset input before each measured run, and retrieve the output afterward. `getOutput()` returns a const reference on CPU and an owning host matrix downloaded on CUDA outside compute timing.
+
+Four reusable feature buffers (`current`, `next`, `scratch`, `branch`) hold intermediate matrices. Their roles are swapped or reused across layers. Each workspace reserves capacity for `rows x maximumFeatureWidth(model)` before timed repetitions.
+
+There is no full feature-matrix allocation, graph conversion, model reconstruction, or host/device round trip between layers in a timed steady-state run.
 
 ## 9. Concrete executor and strategy compositions
 
 ### 9.1 Sequential C++ baseline
 
-`SequentialExecutor` models the required executor operations with ordinary single-threaded loops. `forward_layer` still chooses their order, and `execute_model` still owns the layer loop and buffer swaps. The sequential aggregation operation is intentionally direct and readable:
+`SequentialExecutor` models the required executor operations with ordinary single-threaded loops. `InferenceRuntime` owns the layer loop and buffer swaps. The sequential aggregation operation is direct and readable:
 
 1. iterate destination nodes;
 2. traverse each destination's CSC column;
-3. accumulate normalized incoming messages;
-4. add an implicit self message only when an explicit one is absent.
+3. accumulate incoming messages normalized by inverse square root degrees;
+4. add an implicit self-loop contribution when an explicit self-loop is absent.
 
-The executor's linear and bias/activation operations use similarly direct loops. For GraphSAGE, the sequential aggregation excludes self entries, computes the weighted mean or zero vector, and combines separate self and neighbor transforms. The corresponding sequential result for each GNN type is its native numerical baseline. Every OpenMP and CUDA result is checked against the matching baseline.
+The executor's linear matrix product (`rowByColumn`), branch addition (`add`), and bias/activation operations use direct loops. For GraphSAGE, sequential aggregation excludes self entries ($u == v$), computes the non-self weighted mean, sum, or max, and allows combining separate self and neighbor branches. The sequential execution provides the native numerical baseline against which parallel and GPU results are verified.
 
 ### 9.2 Selected OpenMP destination-owned path
 
-`OpenMpExecutor<OmpDestinationStrategy>` uses the common layer algorithm and host workspace for both selected GNN types. Its aggregation strategy distributes destination nodes. A worker owns the aggregate/output row for each assigned destination, so aggregation needs no atomics. The implementation records thread count, scheduling policy, and chunk size.
+`ParallelExecutor` uses the common layer algorithms and `ParallelCpuContext` for both selected GNN types. Its aggregation strategy partitions destination nodes across threads using static loop scheduling (`#pragma omp parallel for schedule(static)`). A worker thread owns the aggregate/output row for each assigned destination, avoiding atomic aggregation writes.
 
-Static scheduling has low overhead; dynamic or guided scheduling may better handle skewed degrees. Their effect must be measured rather than assumed.
+Within neighbor aggregation, inner feature loops are vectorized with OpenMP SIMD pragmas (`#pragma omp simd`). Thread count is configured via `--threads`.
 
 ### 9.3 Optional additional OpenMP mappings
 
-The selected destination-owned mapping satisfies the minimum multi-threaded implementation count. Additional mappings are permitted. For example, `OpenMpExecutor<OmpEdgeStrategy>` could distribute ranges of the flattened stored-edge array independently of CSC column boundaries. Multiple workers could then contribute to the same destination, requiring a correct mechanism such as atomics or a staged/thread-local reduction.
-
-In such an additional edge mapping, missing implicit self messages would be added in a separate node-parallel pass. Dense transform and activation operations could be shared with the selected composition. If reported as edge-centric, ranges cannot simply be complete destination columns under a different name.
+The destination-owned static mapping satisfies the required multi-threaded implementation count. Additional OpenMP mappings (such as dynamic/guided scheduling for skewed degree distributions or edge-centric partitioning with thread-local staging or atomic reduction) remain potential extensions that can model the same `Executor` concept without modifying layer algorithms.
 
 ### 9.4 CUDA memory and execution
 
-`CudaWorkspace` uses owning RAII device buffers and small trivially copyable device views. CUDA executor/workspace setup:
+Executor operations and kernel wrappers are declared in `cuda_executor.cuh`, `cuda_gcn_kernels.cuh`, and `cuda_GraphSAGE_kernels.cuh`, with kernel definitions in `cuda_kernels.cu`, `cuda_gcn_kernels.cu`, and `cuda_GraphSAGE_kernels.cu`. Kernels receive lightweight `Matrix<DeviceBuffer<float>>` and `DeviceBuffer<T>` handles by value, copying only raw pointers and shape metadata.
 
-- allocates device arrays for CSC, metadata, features, parameters, intermediates, and output;
-- uploads immutable graph/model data once;
-- uploads the input feature matrix before execution; and
-- creates reusable workspace and timing events.
+Device memory is managed by `CudaWorkspace` using RAII `cuda::Allocation` owners. CUDA workspace setup:
 
-`forward_layer` calls `CudaExecutor` operations in semantic order; those operations enqueue the selected kernels. All layers execute device-resident, while `execute_model` swaps device-buffer roles between layers. Only the final output is downloaded for verification or consumption. CUDA allocation, copies, kernel launches, event operations, and synchronization are checked and reported with context.
+- allocates device buffers for CSC graph arrays, features, layer parameters, intermediates, and output;
+- uploads immutable graph and model weights once;
+- uploads the input feature matrix prior to execution;
+- precomputes GCN normalization factors and self-loop flags on-device via `launchGcnPrepareMetadata`; and
+- manages reusable workspace buffers and `cuda::Timer` events.
+
+During steady-state inference, all layers execute device-resident, and `InferenceRuntime` swaps device buffer roles via pointer exchanges. Only the final output matrix is downloaded to host memory when required for consumption or verification.
 
 ### 9.5 Selected CUDA destination/feature path
 
-`CudaExecutor<CudaDestinationFeatureStrategy>` assigns destination/feature aggregation work so each output element or row has a single logical owner. It traverses CSC incoming edges and therefore avoids atomic aggregation. The strategy can serve both GCN normalized aggregation and GraphSAGE weighted-mean aggregation while their different rules remain in their layer algorithms. A practical mapping is a two-dimensional launch over destinations and feature tiles; the final launch geometry is a measured choice, not an architectural abstraction.
+`CudaExecutor` assigns destination/feature aggregation work through 1D grid-stride loops over output elements $(v, f)$, where destination node $v = index / featureDim$ and feature dimension $f = index \% featureDim$. Each thread pulls incoming edges for its assigned destination and accumulates the feature contribution directly, guaranteeing a single writer per output cell and avoiding atomic reduction.
+
+The thread block size is configurable via `--block-size` (default 256). The same execution pattern supports both GCN normalized aggregation and GraphSAGE neighborhood aggregation.
 
 ### 9.6 Optional additional CUDA mappings
 
-The selected destination/feature mapping satisfies the minimum CUDA implementation count. Additional CUDA strategies are permitted. Examples include:
-
-- edge-centric aggregation using atomic or staged reduction;
-- a different mapping across feature dimensions;
-- a coalesced/transposed feature layout; or
-- message-passing tiling with justified shared-memory reuse.
-
-“Use shared memory” is not itself a complete work-mapping description. Every implemented configuration must state what data is reused, by which threads, and why the extra synchronization/storage should help. Under `BEN-COMP-08`, a controlled shared-memory configuration is evaluated when applicable; it need not constitute a separate end-to-end work mapping. When no useful reuse or cooperative operation exists, the report records why shared memory is not applicable.
+The selected destination/feature mapping satisfies the required CUDA implementation count. Additional CUDA strategies (such as edge-centric aggregation with atomic reduction, feature tiling with shared-memory reuse, or alternate matrix layouts) may be evaluated as alternative executor implementations adhering to the same interface.
 
 ## 10. Compile-time composition and outer selection
 
-`Executor` and `Workspace` are C++20 concepts (or equivalently documented template requirements). Concrete types model those concepts without inheriting from a runtime base class. `forward_layer` calls them statically, allowing the compiler to inline host operations and leaving CUDA kernel launches as ordinary typed calls.
+`Executor` and `Workspace` are C++20 concepts. Concrete types model those concepts without runtime inheritance or virtual method tables. `forward_layer` calls executor operations statically, allowing compiler inlining for host operations and direct kernel launch configurations for CUDA.
 
-The CLI still needs runtime selection so one executable can benchmark every required configuration. That selection occurs once and maps to a concrete template instantiation:
+The `Executor` concept requires:
+
+- `rowByColumn(current, weights, next)`: dense matrix product;
+- `add(current, branch, next)`: element-wise addition;
+- `biasAdd(next, bias)`: row-broadcast bias addition;
+- `relu(next)`: activation;
+- `aggregateGCN(graph, input, state, output)`: degree-normalized GCN message passing;
+- `aggregateNeighbors(graph, input, output, aggType)`: GraphSAGE neighborhood aggregation.
+
+Outer selection occurs at program startup in `main.cpp`. The build system gates optional parallel backends via preprocessor defines (`GNN_HAS_OPENMP`, `GNN_HAS_CUDA`). The CLI option selects the backend runner:
 
 ```cpp
-template <class Executor>
-RunResult run_composition(const PreparedWorkload& workload,
-                          const RunOptions& options) {
-    Executor executor{workload, options};
-    typename Executor::Workspace workspace{workload, options};
-    return execute_model(workload.model, executor, workspace, options);
-}
-
-switch (options.backend) {
-case BackendId::Sequential:
-    return run_composition<SequentialExecutor>(workload, options);
-
-case BackendId::OpenMp:
-    return run_composition<
-        OpenMpExecutor<OmpDestinationStrategy>>(workload, options);
-
-case BackendId::Cuda:
-    return run_composition<
-        CudaExecutor<CudaDestinationFeatureStrategy>>(workload, options);
-}
+if (options.backend == "sequential")
+    return gnn::run_sequential(options);
+#if GNN_HAS_OPENMP
+if (options.backend == "parallel")
+    return gnn::run_parallel(options);
+#endif
+#if GNN_HAS_CUDA
+if (options.backend == "cuda")
+    return gnn::run_cuda(options);
+#endif
 ```
 
-The example shows the selected profile from `semantics.md`. If additional work mappings are implemented, they add outer dispatch cases without changing `execute_model` or `forward_layer`. The real implementation must validate unsupported combinations and return a diagnostic. The example's important property is that selection produces a complete compatible composition before `execute_model` begins. There are no backend switches, virtual calls, string comparisons, or factory lookups inside layer operations or node/edge/feature loops.
-
-The executor concept should expose only operations required by selected layer algorithms. It is not a monolithic `run_model()` interface, because that would move layer logic into the executor. It is also not necessarily a broad universal tensor API. GCN needs operations such as `linear`, `normalized_aggregate`, and `bias_and_activate`; GraphSAGE additionally needs a non-self weighted mean and branch combination/linear-add operation. Other layer overloads may require additional well-defined executor capabilities.
+Each backend runner instantiates `InferenceRuntime<ConcreteExecutor>` with its corresponding workspace (`CpuContext`, `ParallelCpuContext`, or `CudaWorkspace`). Selection produces a fully typed composition before execution begins; there are no backend branches, virtual calls, or string lookups inside layer operations or graph traversal loops.
 
 ## 11. Ownership and module boundaries
 
-The target source layout should make dependencies point from the application and concrete executors toward common contracts and layer algorithms:
+The source layout organizes common contracts, layer algorithms, backend-specific executors, and external tool boundaries:
 
 ```text
 src/
   common/
-    graph/          owning CSC and validation
-    matrix/         owning matrices and non-owning host views
-    gnn/            generic model, layer descriptors/algorithms, metadata rules
-    execution/      executor/workspace concepts and execute_model
-    io/             native bundle/configuration loading
-    verify/         tolerance-based output comparison
-    benchmark/      options, measurements, CSV records
-  sequential/       sequential executor, strategy, host workspace
-  parallel/         OpenMP executor and selected/additional strategies
-  cuda/             CUDA executor, strategies, workspace, views, kernels
-  app/              CLI, InferenceRuntime, outer composition switch
-tools/              offline converters, generators, sweeps, plots, framework runner
-tests/              unit, semantic, backend, and malformed-input tests
+    data/           generic CSC graph (GraphCSC), dense matrix (Matrix), buffers, factory, loaders, workload IO
+    execution/      Executor and Workspace concepts, InferenceRuntime
+    gnn/            Layer concept, generic Model, GCN and GraphSAGE layers and aggregations
+    cli.hpp         CLI argument parsing and RunOptions
+    benchmark.hpp   timing measurements and raw CSV result writer
+    demo.hpp        built-in demo fixtures and printer
+    main.cpp        application CLI entry point and backend dispatch
+  sequential/       SequentialExecutor and run_sequential entry point
+  parallel/         ParallelExecutor (OpenMP static + SIMD) and run_parallel entry point
+  cuda/             CudaExecutor, CudaWorkspace, device buffers, kernel wrappers, and run_cuda entry point
+scripts/            Python dataset converters, synthetic generators, benchmark runners,
+                    PyTorch Geometric models and runners, result schema, and verification
 ```
 
-The exact folders can be introduced incrementally. The important rules are:
+Architectural boundaries are strictly maintained:
 
-- `common` contains layer algorithms but no OpenMP scheduling or CUDA ownership;
-- CPU executors do not include CUDA headers;
-- CUDA kernels receive non-owning views, not host containers;
-- file loaders do not silently modify graph semantics; and
-- the CLI/runtime selects and coordinates components but does not implement layer mathematics.
+- `common` contains layer algorithms and concepts but no OpenMP scheduling pragmas or CUDA device code;
+- CPU executors do not include CUDA headers or runtime libraries;
+- CUDA kernels receive lightweight, non-owning device views (`DeviceBuffer`, `Matrix<DeviceBuffer>`) passed by value;
+- file loaders validate input formats without silently mutating graph topology; and
+- external Python tools prepare data, invoke the native CLI, verify numerical equivalence, and orchestrate sweeps without being runtime dependencies of the native C++ engine.
 
 ## 12. Validation and failure behavior
 
 Validation occurs before unchecked high-performance access. It covers:
 
-- CSC pointer size, starting value, monotonicity, and final edge count;
-- source index range, sorted columns, edge-weight count, and duplicates;
-- finite, strictly positive stored edge weights required by the selected normalization;
-- feature row count and feature/model dimensions;
-- non-empty model and compatible consecutive layers;
-- graph data and executor capabilities required by every layer type;
-- valid executor/strategy/workspace combinations; and
-- capacity/overflow checks before allocation.
+- CSC pointer boundaries, monotonicity, source index ranges, strictly sorted sources, and positive finite weights;
+- reciprocity and weight equality validation for undirected graphs;
+- feature matrix dimensions and model input/output dimension chaining;
+- non-empty model definition and valid layer configurations;
+- binary file headers (`<QQBB` for graphs, `<QQ` for matrices, and tokenized manifests for models); and
+- command-line arguments and configuration ranges.
 
-Invalid input produces a diagnostic and non-zero process exit. Executor errors identify the failed operation. A failed correctness comparison prevents a result from being presented as numerically equivalent.
+Invalid input produces a diagnostic message and non-zero process exit. Executor or CUDA errors identify the failed operation. A failed numerical comparison prevents a result from being presented as equivalent.
 
 ## 13. Correctness architecture
 
 Correctness has three levels:
 
-1. small hand-calculated fixtures test graph orientation and both required layer types; GCN fixtures include normalization and self-loops, while GraphSAGE fixtures include non-self weighted mean, empty neighborhoods, and separate self/neighbor branches;
-2. the sequential executor produces the native reference for complete one-layer and multi-layer GCN/GraphSAGE workloads, plus supported mixed-layer workloads; and
-3. every implemented OpenMP/CUDA strategy is compared element-wise using the absolute/relative tolerance from [semantics.md](semantics.md).
+1. small fixtures (such as the built-in demo) test graph orientation and both required layer types, including degree normalization, explicit/missing self-loops, and multi-branch GraphSAGE combinations;
+2. the sequential executor produces the native numerical reference for complete GCN, GraphSAGE, and mixed-layer workloads; and
+3. every parallel OpenMP and CUDA execution is verified element-wise against the matching sequential baseline using absolute and relative tolerances ($|actual - expected| \le atol + rtol \cdot |expected|$) via `scripts/benchmark_runner.py`.
 
-Tests include non-uniform degree, an isolated node, explicit and missing self-loops, invalid dimensions, and malformed CSC. The required external-framework mappings for GCN and GraphSAGE are checked against the same sequential baselines before their performance measurements are accepted.
+The external-framework comparison runner (`scripts/compare_framework.py`) further checks native outputs against equivalent PyTorch Geometric reference models (`scripts/pyg_models.py`) before performance comparisons are accepted.
 
 ## 14. Benchmark and reproducibility architecture
 
-One native benchmark CLI accepts dataset/model paths, backend, strategy, thread/launch configuration, warm-ups, repetitions, and output path. Every CSV row records enough information to reproduce the run:
+Benchmarking follows a two-tier architecture separating high-resolution native measurement from descriptive experiment metadata collection:
 
-- dataset and model identifiers;
-- node, stored-edge, and per-layer processed-message counts;
-- feature dimensions and layer count;
-- backend and strategy;
-- threads or CUDA launch settings;
-- timing scope and sample statistics;
-- throughput and speedup;
-- host/device peak-memory method and result;
-- verification status and tolerances; and
-- compiler, CUDA/runtime, hardware, OS, and source revision.
+1. **Native measurement**: The native C++ CLI accepts dataset/model paths, execution backend, thread/launch configuration, warmups, repetitions, and output paths. It records steady-state timing samples (`load_ms`, `setup_ms`, `upload_ms`, `download_ms`, `reset_ms`, `compute_ms`, `end_to_end_ms`) and workspace capacity bytes.
+2. **Metadata enrichment and verification**: The Python benchmark runner (`scripts/benchmark_runner.py`) coordinates execution, collects environment metadata (CPU, GPU inventory via `nvidia-smi`, compiler from Meson intro metadata), inspects workload parameters, performs numerical verification against the sequential reference, and writes standardized 42-column CSV records adhering to `scripts/result_schema.py`.
+3. **Framework comparison**: `scripts/compare_framework.py` orchestrates native and PyTorch Geometric runs on identical workloads, verifying output accuracy and recording speedup metrics in `comparison.csv`.
 
-The experiment layer records a controlled shared-memory comparison when applicable and compares sparse with feasible dense adjacency storage. Dense comparisons include the represented storage and executed-work counts so small dense baselines are not extrapolated misleadingly to large graphs.
-
-The dataset plan selects at least one of the scale-free, random, or small-world synthetic families and at least one public graph. Synthetic and public configurations are both constrained by available host and device memory. When a larger case is omitted, the report identifies the limiting resource and justifies the largest feasible configuration.
-
-The final technical documentation records how many complete CPU and CUDA mappings were implemented, why that number was chosen, why each mapping fits the selected workloads and hardware, which alternatives were considered, and how measurements affected the original rationale.
-
-The required external-framework runner consumes equivalent saved GCN and GraphSAGE data and emits compatible result fields. It remains a separate program so framework startup, caching, and synchronization choices are visible.
+Every benchmark row records enough information to reproduce the run: dataset and model identifiers, topology and dimension counts, backend and strategy, threads or CUDA block size, timing samples and statistics, peak memory or workspace capacity, numerical verification status, tolerances, and hardware/software environment details.

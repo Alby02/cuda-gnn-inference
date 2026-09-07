@@ -18,52 +18,57 @@ The engine adopts a **fully decoupled, modular architecture** that cleanly separ
 ```mermaid
 flowchart TD
     subgraph Client Application
-        App["main / Benchmarking Runner"]
+        App["main / Benchmark Runners"]
     end
 
     subgraph High-Level Orchestration
-        Runtime["InferenceRuntime<br/>(Coordinates model, backend & context)"]
-        Model["GNNModel<br/>(Stack of heterogeneous layers)"]
+        Runtime["InferenceRuntime&lt;Executor&gt;<br/>(Coordinates model execution & buffer swaps)"]
+        Model["Model&lt;Layers...&gt;<br/>(Ordered stack of heterogeneous layers)"]
     end
 
     subgraph Algorithmic Layer Graph
-        Layers["Layers: GCNLayer | GraphSageLayer<br/>• Encapsulate layer parameters (W, b)<br/>• Define dataflow: forward(backend, ctx, graph, in, out)"]
+        Layers["Layers: GCNLayer | GraphSAGELayer<br/>• Encapsulate parameters (W_neigh, W_self, b)<br/>• Own forward_layer(layer, graph, executor, workspace)"]
     end
 
     subgraph Hardware Execution & Primitives
-        Backend["Backend Concept<br/>• aggregate() [SpMM / Neighbor Reduction]<br/>• linear() [GEMM]<br/>• activation() [ReLU, Sigmoid]<br/>• add() / biasAdd() [Elementwise]"]
-        SeqB["SequentialBackend<br/>(CPU Baseline)"]
-        OmpB["OpenMPBackend<br/>(Vertex & Edge Parallel)"]
-        CudaB["CudaBackend<br/>(Node, Edge, Shared Mem Kernels)"]
+        Executor["Executor Concept<br/>• aggregateGCN() [Degree-normalized SpMM]<br/>• aggregateNeighbors() [Mean, Sum, Max]<br/>• rowByColumn() [Dense GEMM projection]<br/>• relu() [Activation]<br/>• add() / biasAdd() [Elementwise & broadcast]"]
+        SeqE["SequentialExecutor<br/>(CPU Baseline)"]
+        OmpE["ParallelExecutor<br/>(OpenMP Static + SIMD)"]
+        CudaE["CudaExecutor<br/>(CUDA 1D Grid-Stride)"]
     end
 
-    subgraph Memory Management & Storage
-        Context["ExecutionContext<br/>• Pre-allocated Ping-Pong Buffers (A/B)<br/>• Scratchpad Workspace (Aggregation / Self-loops)<br/>• Zero dynamic allocations in inner loops"]
-        Graph["Graph Topologies & Features<br/>• Directed/undirected enum + canonical CSC<br/>• DenseMatrix & non-owning host/device views"]
+    subgraph Memory Management & State
+        Workspace["Workspace Concept<br/>• Pre-allocated Current & Next buffers<br/>• Scratch & Branch workspaces<br/>• Backend GCN aggregation state<br/>• Zero dynamic allocations in inference loops"]
+        CpuW["CpuContext / ParallelCpuContext<br/>(Host buffers + CPU GCN state)"]
+        CudaW["CudaWorkspace<br/>(Device buffers + CUDA GCN state + events)"]
     end
 
     App --> Runtime
+    App --> Workspace
     Runtime --> Model
-    Runtime --> Backend
-    Runtime --> Context
+    Runtime --> Executor
+    Runtime --> Workspace
 
-    Model -->|Executes sequence| Layers
-    Layers -->|"1. Invokes primitive ops"| Backend
-    Layers -->|"2. Requests workspace buffers"| Context
-    Backend -->|"Reads topology & features"| Graph
+    Model -->|Iterates via std::visit| Layers
+    Layers -->|"1. Invokes primitive operations"| Executor
+    Layers -->|"2. Reads/writes working buffers"| Workspace
+    Executor -->|"Reads/writes"| Workspace
 
-    Backend -.-> SeqB
-    Backend -.-> OmpB
-    Backend -.-> CudaB
+    Executor -.-> SeqE
+    Executor -.-> OmpE
+    Executor -.-> CudaE
+
+    Workspace -.-> CpuW
+    Workspace -.-> CudaW
 ```
 
 ### Core Architecture Pillars
 
-1. **`Backend` (Hardware Compute Primitives)**: Exposes pure hardware math operations (`aggregate`, `linear`, `activation`, `add`, `biasAdd`). Backends: `SequentialBackend`, `OpenMPBackend`, `CudaBackend`.
-2. **`ExecutionContext` (Memory & Buffer Management)**: Manages pre-allocated ping-pong buffers (`bufferA`, `bufferB`) and scratchpad workspaces to eliminate dynamic heap allocations during inference.
-3. **`Layer` (Algorithmic Logic)**: Encapsulates parameters ($W_{\text{neigh}}, W_{\text{self}}, b$) and defines `forward(backend, ctx, graph, in, out)` by composing backend primitives.
-4. **`GNNModel` (Layer Pipeline Container)**: Holds an ordered sequence of heterogeneous layers and orchestrates multi-layer forward propagation.
-5. **`InferenceRuntime` (Execution Orchestrator)**: High-level engine binding the Model, Backend, and Context, exposing `.run(graph, features)`.
+1. **`Executor` (Hardware Compute Primitives)**: Exposes typed hardware operations (`rowByColumn`, `aggregateGCN`, `aggregateNeighbors`, `add`, `biasAdd`, `relu`). Implementations: `SequentialExecutor`, `ParallelExecutor` (OpenMP), `CudaExecutor`.
+2. **`Workspace` (Memory & State Management)**: Manages pre-allocated intermediate buffers (`current`, `next`, `scratch`, `branch`) and backend GCN aggregation state (`GCNAggregationState` / `CudaGCNAggregationState`), guaranteeing zero dynamic allocations during steady-state inference.
+3. **`Layer` (Algorithmic Logic)**: Encapsulates parameters ($W_{\text{neigh}}, W_{\text{self}}, b$) and defines `forward_layer(layer, graph, executor, workspace)` by composing executor primitives.
+4. **`Model` (Layer Pipeline Container)**: Holds an ordered sequence of heterogeneous layer descriptors (`std::variant`) and validates adjacent feature dimensions.
+5. **`InferenceRuntime` (Execution Orchestrator)**: High-level engine executing the layer pipeline via `std::visit` and exchanging ping-pong buffers (`current` and `next`) via `workspace.swapBuffers()`.
 
 ---
 
@@ -158,7 +163,7 @@ Data options — `--graph`, `--features`, and `--model` are **required together*
 
 - `--graph FILE` — binary graph topology in the repository's custom `.bin_graph` format
 - `--features FILE` — binary dense node-feature matrix in the custom `.bin_matrix` format
-- `--model FILE` — model description manifest (layer types, activations, weight/bias file paths); see `src/common/data/model_io.hpp` for the exact manifest format. No script in `scripts/` currently generates this manifest — `--graph`/`--features`/`--model` today have to be produced/authored manually to match that loader.
+- `--model FILE` — model description manifest (layer types, activations, weight/bias file paths); see `src/common/data/model_io.hpp` for the exact manifest format. Workload bundles (.bin_graph, .bin_matrix, .manifest) can be generated via `scripts/synthetic_generator.py`, converted from public datasets via `scripts/converter.py`, or created via `scripts/make_example_inputs.py`.
 
 Other options:
 
@@ -180,12 +185,6 @@ Environment variables that affect execution:
 
 - `OMP_NUM_THREADS` — controls CPU-thread count for OpenMP (used together with `--threads` for `--backend parallel`)
 - `CUDA_VISIBLE_DEVICES` — controls which GPUs are visible to the process (useful for `--backend cuda`)
-
-GraphSAGE also support manually Hyperparameters, include layer number k and Number of samples in every layer S. 
-In baseline, k = 2 and S = 25 10. 
-If choose k = 3, the default S = 15 10 5
-
-- `GraphSAGEHyperparameters ` - controls the Hyperparameters of GraphSAGE. To do this, list all Hyperparameters by the order of k S(for example, `GraphSAGEHyperparameters 2 25 10`, `GraphSAGEHyperparameters 3` )
 
 Examples:
 
@@ -255,11 +254,11 @@ Notes:
 
 The project uses one shared-infrastructure stream and two vertical model streams. All three members write parallel code: `s362415` takes GCN through OpenMP and CUDA, `s296248` does the same for GraphSAGE, and `s360540` implements the common OpenMP/CUDA infrastructure and primitives.
 
-The statuses below combine project-level progress with an audit of the current branch against the
+The statuses below combine project-level progress with an audit of the codebase against the
 acceptance criteria in [`doc/features.md`](doc/features.md). `Completed`
-means the work is integrated in this branch; `Completed — pending merge` means it was completed on
-another branch and still needs to be merged; `Scheduled` means implementation has started but is
-incomplete; `Assigned` means implementation has not started.
+means the work is fully implemented and integrated in the codebase; `In progress` means work is actively
+underway (e.g. final experiments, technical report, presentation); `Optional — unselected in profile` indicates conditional
+extensions not selected in the baseline project profile (`semantics.md`).
 
 | Task ID(s) | Task | Student ID | Status |
 | :--- | :--- | :---: | :---: |
@@ -268,43 +267,44 @@ incomplete; `Assigned` means implementation has not started.
 | T-IO-02 | Canonical graph loader and orientation validation | `s362415` | Completed |
 | T-DATA-01 | Reproducible synthetic graph generator | `s362415` | Completed |
 | T-DATA-03 | Public dataset preparation | `s362415` | Completed |
-| T-CON-02 | Storage-generic buffers, matrices, graphs, and CUDA kernel views | `s360540` | Scheduled |
-| T-CON-06–T-CON-08 | Executor contracts, reusable workspaces, and outer backend dispatch | `s360540` | Scheduled |
-| T-CON-05 (GCN) | GCN degree and self-message semantic preparation | `s362415` | Completed — pending merge |
+| T-CON-02 | Storage-generic buffers, matrices, graphs, and CUDA kernel views | `s360540` | Completed |
+| T-CON-06–T-CON-08 | Executor contracts, reusable workspaces, and outer backend dispatch | `s360540` | Completed |
+| T-CON-05 (GCN) | GCN degree and self-message semantic preparation | `s362415` | Completed |
 | T-CON-05 (GraphSAGE) | GraphSAGE neighbor-total semantic preparation | `s296248` | Completed |
-| T-IO-01, T-IO-05 | Versioned workload bundle and machine-readable result schema | `s360540` | Assigned |
-| T-IO-03 | Feature, model, layer, and parameter loading | `s362415s` | Completed |
-| T-IO-04, T-IO-06 | CLI configuration and unsupported-composition validation | `s360540` | Scheduled |
-| T-SEQ-01 | Shared sequential dense, bias, activation, and branch-combination primitives | `s360540` | Scheduled |
+| T-IO-01, T-IO-05 | Versioned workload bundle and machine-readable result schema | `s360540` | Completed |
+| T-IO-03 | Feature, model, layer, and parameter loading | `s362415` | Completed |
+| T-IO-04, T-IO-06 | CLI configuration and unsupported-composition validation | `s360540` | Completed |
+| T-SEQ-01 | Shared sequential dense, bias, activation, and branch-combination primitives | `s360540` | Completed |
 | T-SEQ-05 | Generic model execution with layer iteration and ping-pong buffers | `s360540` | Completed |
-| T-SEQ-06 | Allocation-free steady-state workspace reuse | `s360540` | Scheduled |
-| T-SEQ-02 | Sequential GCN normalized aggregation | `s362415` | Completed - pending merge |
-| T-SEQ-04 (GCN) | Sequential GCN layer execution | `s362415` | Completed - pending merge |
+| T-SEQ-06 | Allocation-free steady-state workspace reuse | `s360540` | Completed |
+| T-SEQ-02 | Sequential GCN normalized aggregation | `s362415` | Completed |
+| T-SEQ-04 (GCN) | Sequential GCN layer execution | `s362415` | Completed |
 | T-SEQ-03 | Sequential GraphSAGE weighted non-self mean | `s296248` | Completed |
-| T-SEQ-04 (GraphSAGE) | Sequential GraphSAGE layer execution | `s296248` | Scheduled |
-| T-VER-03, T-VER-05 | Common comparison and invalid-input test infrastructure | `s360540` | Assigned |
+| T-SEQ-04 (GraphSAGE) | Sequential GraphSAGE layer execution | `s296248` | Completed |
+| T-VER-03, T-VER-05 | Common comparison and invalid-input test infrastructure | `s360540` | Completed |
 | T-VER-01, T-VER-04/T-VER-06 (GCN) | GCN fixtures and native/framework backend verification | `s362415` | Completed |
 | T-VER-02, T-VER-04/T-VER-06 (GraphSAGE) | GraphSAGE fixtures and native/framework backend verification | `s296248` | Completed |
-| T-OMPV-03, T-OMPV-05 | Common OpenMP dense/elementwise operations and workspace | `s360540` | Scheduled |
-| T-OMPV-01, T-OMPV-04 (GCN) | Destination-owned OpenMP GCN and its configurations | `s362415` | Completed - pending merge |
+| T-OMPV-03, T-OMPV-05 | Common OpenMP dense/elementwise operations and workspace | `s360540` | Completed |
+| T-OMPV-01, T-OMPV-04 (GCN) | Destination-owned OpenMP GCN and its configurations | `s362415` | Completed |
 | T-OMPV-02, T-OMPV-04 (GraphSAGE) | Destination-owned OpenMP GraphSAGE and its configurations | `s296248` | Completed |
-| T-OMPE-01–T-OMPE-05 | Conditional additional OpenMP mapping | `s296248` | Completed |
-| T-CUDA-01–T-CUDA-04, T-CUDAV-03 | CUDA ownership/runtime and common CUDA operations | `s360540` | Scheduled |
+| T-OMPE-01–T-OMPE-05 | Conditional additional OpenMP mapping | `s296248` | Optional |
+| T-CUDA-01–T-CUDA-04, T-CUDAV-03 | CUDA ownership/runtime and common CUDA operations | `s360540` | Completed |
 | T-CUDAV-01, T-CUDAV-04 (GCN) | CUDA GCN aggregation and launch configurations | `s362415` | Completed |
-| T-CUDAV-02, T-CUDAV-04 (GraphSAGE) | CUDA GraphSAGE aggregation and launch configurations | `s296248` | Assigned |
-| T-CUDAA-01–T-CUDAA-04 | Conditional additional CUDA mapping | `s296248` | Assigned |
-| T-EXP-01–T-EXP-03 | Shared-memory and sparse/dense studies | `s296248` | Assigned |
+| T-CUDAV-02, T-CUDAV-04 (GraphSAGE) | CUDA GraphSAGE aggregation and launch configurations | `s296248` | Completed |
+| T-CUDAA-01–T-CUDAA-04 | Conditional additional CUDA mapping | `s296248` | Optional |
+| T-EXP-01–T-EXP-03 | Shared-memory and sparse/dense studies | `s296248` | Optional |
 | T-DATA-02, T-DATA-04/T-DATA-05 (GCN) | Synthetic workload ranges and GCN parameters/counts | `s362415` | Completed |
 | T-DATA-04/T-DATA-05 (GraphSAGE) | GraphSAGE parameters/counts | `s296248` | Completed |
-| T-FRM-01, T-FRM-02, T-FRM-05 | Shared external-framework adapter and measurement boundaries | `s360540` | Assigned |
-| T-FRM-03, T-FRM-06 (GCN) | GCN framework mapping and comparison | `s362415` | Assigned |
+| T-FRM-01, T-FRM-02, T-FRM-05 | Shared external-framework adapter and measurement boundaries | `s360540` | Completed |
+| T-FRM-03, T-FRM-06 (GCN) | GCN framework mapping and comparison | `s362415` | Completed |
 | T-FRM-04, T-FRM-06 (GraphSAGE) | GraphSAGE framework mapping and comparison | `s296248` | Completed |
-| T-BENCH-01, T-BENCH-02, T-BENCH-07 | Common benchmark runner, timing boundaries, and metadata | `s360540` | Assigned |
-| T-BENCH-03–T-BENCH-06 (OpenMP/GCN) | OpenMP scaling and GCN benchmark results | `s362415` | Assigned |
-| T-BENCH-03–T-BENCH-06 (CUDA/GraphSAGE) | CUDA configurations, memory, and GraphSAGE benchmark results | `s296248` | Assigned |
-| T-DEL-01–T-DEL-02 | Build, CLI, bundle, and run documentation | `s360540` | Scheduled |
-| T-DEL-03–T-DEL-04 (GCN/OpenMP) | GCN/OpenMP plots and report sections | `s362415` | Assigned |
-| T-DEL-03–T-DEL-05 (GraphSAGE/CUDA) | GraphSAGE/CUDA report sections and demonstration | `s296248` | Assigned |
+| T-BENCH-01, T-BENCH-02, T-BENCH-07 | Common benchmark runner, timing boundaries, and metadata | `s360540` | Completed |
+| T-BENCH-03–T-BENCH-06 (OpenMP/GCN) | OpenMP scaling and GCN benchmark results | `s362415` | Completed |
+| T-BENCH-03–T-BENCH-06 (CUDA/GraphSAGE) | CUDA configurations, memory, and GraphSAGE benchmark results | `s296248` | Completed |
+| T-DEL-01–T-DEL-02 | Build, CLI, bundle, and run documentation | `s360540` | Completed |
+| T-DEL-03 | Comparison plots and visualization scripts | `s362415`, `s296248` | Completed |
+| T-DEL-04 | Technical report (architecture, evaluation, analysis) | All members | In progress |
+| T-DEL-05 | Presentation and live demonstration path | All members | In progress |
 
 Detailed acceptance criteria for every task are in [doc/features.md](doc/features.md#61-three-person-delivery-split).
 

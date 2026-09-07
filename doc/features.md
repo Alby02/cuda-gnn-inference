@@ -43,22 +43,22 @@ Model training and weight updates, automatic differentiation and backpropagation
 
 ## 4. Delivery milestones
 
-| Milestone | Acceptance boundary |
-| --- | --- |
-| M0 — contracts | Native bundle, graph convention, GCN/GraphSAGE parameters, CLI, and result schema are documented and covered by format tests. |
-| M1 — sequential reference | One-layer and multi-layer GCN and GraphSAGE models load, execute sequentially, and pass hand-calculated fixtures. |
-| M2 — multi-core CPU | Both selected model types pass the selected complete OpenMP implementation and its strategy rationale is documented. |
-| M3 — CUDA baseline | Both selected model types run device-resident through the selected complete CUDA implementation and match their sequential baselines. |
-| M4 — CUDA experiments | The applicable shared-memory comparison is reproducible; any additional work mapping is verified and documented. |
-| M5 — datasets and framework | Synthetic/public workloads and equivalent external-framework GCN/GraphSAGE runs pass semantic checks. |
-| M6 — evaluation | All required timing, throughput, memory, scalability, strategy, storage, and framework comparisons are exported. |
-| M7 — delivery | Build/run documentation, technical report, reproducibility artifacts, and presentation are complete. |
+| Milestone | Acceptance boundary | Status |
+| --- | --- | :---: |
+| M0 — contracts | Native input formats, graph convention, GCN/GraphSAGE parameters, CLI, and result schema are documented and covered by format tests. | Completed |
+| M1 — sequential reference | One-layer and multi-layer GCN and GraphSAGE models load, execute sequentially, and pass hand-calculated fixtures. | Completed |
+| M2 — multi-core CPU | Both selected model types pass the selected complete OpenMP implementation and its strategy rationale is documented. | Completed |
+| M3 — CUDA baseline | Both selected model types run device-resident through the selected complete CUDA implementation and match their sequential baselines. | Completed |
+| M4 — CUDA experiments | The applicable shared-memory comparison is reproducible; any additional work mapping is verified and documented. | In progress |
+| M5 — datasets and framework | Synthetic/public workloads and equivalent external-framework GCN/GraphSAGE runs pass semantic checks. | Completed |
+| M6 — evaluation | All required timing, throughput, memory, scalability, strategy, storage, and framework comparisons are exported. | Completed |
+| M7 — delivery | Build/run documentation, technical report, reproducibility artifacts, and presentation are complete. | In progress |
 
 ## 5. Dependency flow
 
 ```mermaid
 flowchart LR
-    Contracts["Contracts and core data"] --> IO["Bundle, loaders, and CLI"]
+    Contracts["Contracts and core data"] --> IO["Input files, loaders, and CLI"]
     Contracts --> Seq["Sequential GCN and GraphSAGE"]
     IO --> Seq
     Seq --> Verify["Correctness harness"]
@@ -80,22 +80,22 @@ flowchart LR
 
 ## 6. Feature map
 
-| Feature | Outcome |
-| --- | --- |
-| F-CONTRACTS | Validated graph, matrix, model, semantic metadata, executor, and workspace contracts. |
-| F-IO | Reproducible native bundle loading, configuration, diagnostics, and result output. |
-| F-SEQ | Complete sequential GCN and GraphSAGE baselines. |
-| F-VERIFY | Semantic fixtures and cross-executor numerical verification. |
-| F-OMP-SELECTED | Selected destination-owned OpenMP execution for GCN and GraphSAGE. |
-| F-OMP-ADDITIONAL | Conditional additional OpenMP mapping when added to `semantics.md`. |
-| F-CUDA-CORE | CUDA ownership, transfers, launch/error handling, and device workspaces. |
-| F-CUDA-SELECTED | Device-resident destination/feature CUDA execution for GCN and GraphSAGE. |
-| F-CUDA-ADDITIONAL | Conditional additional CUDA mapping when added to `semantics.md`. |
-| F-EXPERIMENTS | Applicable shared-memory and sparse/dense studies. |
-| F-DATA | Reproducible synthetic graphs and at least one public benchmark. |
-| F-FRAMEWORK | Equivalent GCN and GraphSAGE comparison in an established framework. |
-| F-BENCH | Repeatable timing, throughput, memory, scaling, and CSV orchestration. |
-| F-DELIVERY | Build/run guide, format guide, report artifacts, and slides. |
+| Feature | Outcome | Status |
+| --- | --- | :---: |
+| F-CONTRACTS | Validated graph, matrix, model, semantic metadata, executor, and workspace contracts. | Completed |
+| F-IO | Reproducible native input files loading, configuration, diagnostics, and result output. | Completed |
+| F-SEQ | Complete sequential GCN and GraphSAGE baselines. | Completed |
+| F-VERIFY | Semantic fixtures and cross-executor numerical verification. | Completed |
+| F-OMP-SELECTED | Selected destination-owned OpenMP execution for GCN and GraphSAGE. | Completed |
+| F-OMP-ADDITIONAL | Conditional additional OpenMP mapping when added to `semantics.md`. | Optional — unselected in profile |
+| F-CUDA-CORE | CUDA ownership, transfers, launch/error handling, and device workspaces. | Completed |
+| F-CUDA-SELECTED | Device-resident destination/feature CUDA execution for GCN and GraphSAGE. | Completed |
+| F-CUDA-ADDITIONAL | Conditional additional CUDA mapping when added to `semantics.md`. | Optional — unselected in profile |
+| F-EXPERIMENTS | Applicable shared-memory and sparse/dense studies. | In progress |
+| F-DATA | Reproducible synthetic graphs and at least one public benchmark. | Completed |
+| F-FRAMEWORK | Equivalent GCN and GraphSAGE comparison in an established framework. | Completed |
+| F-BENCH | Repeatable timing, throughput, memory, scaling, and CSV orchestration. | Completed |
+| F-DELIVERY | Build/run guide, format guide, report artifacts, and slides. | In progress |
 
 ### 6.1 Three-person delivery split
 
@@ -113,7 +113,7 @@ Tasks that mention both models are split by model rather than silently assigned 
 
 | Area | `s360540` — shared foundation | `s362415` — GCN vertical slice | `s296248` — GraphSAGE vertical slice |
 | --- | --- | --- | --- |
-| Contracts and I/O | T-CON-01 through T-CON-04, T-CON-06 through T-CON-08, T-IO-01, and T-IO-03 through T-IO-06 | T-IO-02 graph loader; GCN preparation in T-CON-05 | GraphSAGE preparation in T-CON-05 |
+| Contracts and I/O | T-CON-01 through T-CON-04, T-CON-06 through T-CON-08, T-IO-01, and T-IO-04 through T-IO-06 | T-IO-02 graph loader and T-IO-03 loading; GCN preparation in T-CON-05 | GraphSAGE preparation in T-CON-05 |
 | Sequential | T-SEQ-01, T-SEQ-05, and T-SEQ-06 | T-SEQ-02 and the GCN part of T-SEQ-04 | T-SEQ-03 and the GraphSAGE part of T-SEQ-04 |
 | OpenMP | T-OMPV-03 and T-OMPV-05; integrates the common executor | T-OMPV-01 and GCN configuration/results for T-OMPV-04 | T-OMPV-02 and GraphSAGE configuration/results for T-OMPV-04 |
 | CUDA | T-CUDA-01 through T-CUDA-04 and T-CUDAV-03; integrates the common executor and upload/residency path | T-CUDAV-01 and GCN launch results for T-CUDAV-04 | T-CUDAV-02 and GraphSAGE launch results for T-CUDAV-04 |
@@ -127,100 +127,100 @@ F-OMP-ADDITIONAL and F-CUDA-ADDITIONAL remain stretch work. If time permits afte
 
 ## 7. F-CONTRACTS — shared native contracts
 
-| Task | Work | Done when |
-| --- | --- | --- |
-| T-CON-01 | Define the canonical CSC graph with a directed/undirected orientation enum, sorted source indices, optional positive scalar weights, and explicit-self-loop preservation. Keep orientation outside layer semantics. | Directed and undirected fixtures expose the same layer-facing traversal contract; the enum round-trips through metadata, undirected reciprocity is validated, and malformed pointers, indices, duplicates, asymmetry, or invalid weights are rejected. |
-| T-CON-02 | Define owning row-major `float32` matrices and bounded non-owning host/device views. | Shape, offset, overflow, move, and lifetime tests pass without per-row heap allocations. |
-| T-CON-03 | Define `GCNLayer` and mean `GraphSageLayer` descriptors with dimensions, parameters, optional bias, and activation. | Valid one-layer and multi-layer descriptors are constructible and incompatible parameter shapes are rejected. |
-| T-CON-04 | Define a non-empty generic model and a type-safe layer-selection boundary. | Homogeneous GCN and GraphSAGE models validate; unsupported types and adjacent-dimension mismatches fail before inference. |
-| T-CON-05 | Implement shared semantic preparation for GCN degrees/self messages and GraphSAGE non-self neighbor-weight totals. | Prepared values match hand-calculated weighted, explicit-self, missing-self, and empty-neighbor fixtures. |
-| T-CON-06 | Define executor operation requirements and layer-specific `forward_layer` algorithms. | GCN and GraphSAGE operation order is expressed outside executor classes and unsupported executor capabilities are diagnosed before execution. |
-| T-CON-07 | Define reusable host and CUDA workspace contracts, including ping-pong features and layer scratch requirements. | Maximum required capacity is established before timed repetitions and buffer roles swap safely across layers. |
-| T-CON-08 | Define outer backend/strategy dispatch to concrete compositions. | No backend switch, virtual dispatch, string lookup, or factory lookup occurs in a node/edge/feature loop. |
+| Task | Work | Done when | Status |
+| --- | --- | --- | :---: |
+| T-CON-01 | Define the canonical CSC graph with a directed/undirected orientation enum, sorted source indices, optional positive scalar weights, and explicit-self-loop preservation. Keep orientation outside layer semantics. | Directed and undirected fixtures expose the same layer-facing traversal contract; the enum round-trips through metadata, undirected reciprocity is validated, and malformed pointers, indices, duplicates, asymmetry, or invalid weights are rejected. | Completed |
+| T-CON-02 | Define owning row-major `float32` matrices and bounded non-owning host/device views. | Shape, offset, overflow, move, and lifetime tests pass without per-row heap allocations. | Completed |
+| T-CON-03 | Define `GCNLayer` and mean `GraphSageLayer` descriptors with dimensions, parameters, optional bias, and activation. | Valid one-layer and multi-layer descriptors are constructible and incompatible parameter shapes are rejected. | Completed |
+| T-CON-04 | Define a non-empty generic model and a type-safe layer-selection boundary. | Homogeneous GCN and GraphSAGE models validate; unsupported types and adjacent-dimension mismatches fail before inference. | Completed |
+| T-CON-05 | Implement shared semantic preparation for GCN degrees/self messages and GraphSAGE non-self neighbor-weight totals. | Prepared values match hand-calculated weighted, explicit-self, missing-self, and empty-neighbor fixtures. | Completed |
+| T-CON-06 | Define executor operation requirements and layer-specific `forward_layer` algorithms. | GCN and GraphSAGE operation order is expressed outside executor classes and unsupported executor capabilities are diagnosed before execution. | Completed |
+| T-CON-07 | Define reusable host and CUDA workspace contracts, including ping-pong features (`current`, `next`), `scratch`, `branch`, and layer scratch requirements. | Maximum required capacity is established before timed repetitions and buffer roles swap safely across layers. | Completed |
+| T-CON-08 | Define outer backend/strategy dispatch to concrete compositions (`InferenceRuntime`). | No backend switch, virtual dispatch, string lookup, or factory lookup occurs in a node/edge/feature loop. | Completed |
 
-## 8. F-IO — bundle, loaders, and CLI
+## 8. F-IO — input files, loaders, and CLI
 
-| Task | Work | Done when |
-| --- | --- | --- |
-| T-IO-01 | Specify a versioned workload bundle for CSC arrays, weights, node features, model layers/parameters, dtype, layout, orientation, byte order, index width, and provenance. | A minimal GCN bundle and a minimal GraphSAGE bundle can be produced and loaded using only the format specification. |
-| T-IO-02 | Implement the strict canonical CSC graph loader, including orientation-enum decoding and directed/undirected validation. | Directed and undirected fixtures load with the correct enum; truncated arrays, inconsistent counts, invalid enum values, duplicates, and asymmetric undirected inputs produce contextual diagnostics. |
-| T-IO-03 | Implement strict node-feature, model, layer, and parameter loaders. | Truncated data, incompatible dimensions, invalid layer configuration, and arithmetic overflow produce contextual diagnostics. |
-| T-IO-04 | Implement CLI/configuration fields for dataset/model paths, backend, strategy, threads/launch settings, warm-ups, repetitions, verification, and output path. | A non-default configuration is reproduced from one recorded command. |
-| T-IO-05 | Define a machine-readable result schema shared by native and framework runners. | CSV records distinguish setup, compute, and end-to-end boundaries and include all metadata required by `requirements.md`. |
-| T-IO-06 | Make unsupported model/backend/strategy combinations fail before workspace allocation or timing. | Negative configuration tests return a non-zero exit and name the incompatible selection. |
+| Task | Work | Done when | Status |
+| --- | --- | --- | :---: |
+| T-IO-01 | Specify versioned workload file formats (`.bin_graph`, `.bin_matrix`, `.manifest`) for CSC arrays, weights, node features, model layers/parameters, dtype, layout, orientation, byte order, index width, and provenance. | A minimal GCN workload and a minimal GraphSAGE workload can be produced and loaded using only the format specification. | Completed |
+| T-IO-02 | Implement the strict canonical CSC graph loader, including orientation-enum decoding and directed/undirected validation. | Directed and undirected fixtures load with the correct enum; truncated arrays, inconsistent counts, invalid enum values, duplicates, and asymmetric undirected inputs produce contextual diagnostics. | Completed |
+| T-IO-03 | Implement strict node-feature, model manifest, layer, and parameter loaders. | Truncated data, incompatible dimensions, invalid layer configuration, and arithmetic overflow produce contextual diagnostics. | Completed |
+| T-IO-04 | Implement CLI/configuration fields for dataset/model paths, backend, threads/launch settings, warm-ups, repetitions, verification, and output path. Strategy and schedule are fixed in code by request. | A non-default configuration is reproduced from one recorded command. | Completed |
+| T-IO-05 | Define a machine-readable result schema (42-column CSV) shared by native and framework runners. | CSV records distinguish setup, compute, and end-to-end boundaries and include all metadata required by `requirements.md`. | Completed |
+| T-IO-06 | Make unsupported model/backend/strategy combinations fail before workspace allocation or timing. | Negative configuration tests return a non-zero exit and name the incompatible selection. | Completed |
 
 ## 9. F-SEQ — sequential baselines
 
-| Task | Work | Done when |
-| --- | --- | --- |
-| T-SEQ-01 | Implement direct single-threaded dense linear, bias, activation, and branch-combination operations. | Small matrix fixtures match hand-calculated results. |
-| T-SEQ-02 | Implement GCN normalized incoming aggregation with explicit-or-implicit self handling. | Weighted and unweighted fixtures match the equations in `semantics.md`. |
-| T-SEQ-03 | Implement GraphSAGE weighted non-self mean with a zero vector for an empty neighborhood. | Self-loop exclusion, weighted mean, and empty-neighbor fixtures pass. |
-| T-SEQ-04 | Implement GCN and GraphSAGE `forward_layer` algorithms using the shared sequential executor operations. | One layer of each type matches its worked semantic example. |
-| T-SEQ-05 | Implement `execute_model` with layer iteration and ping-pong feature buffers. | One-layer and multi-layer GCN and GraphSAGE outputs are correct with differing feature dimensions. |
-| T-SEQ-06 | Remove repeated allocations and graph/model reconstruction from the steady-state forward pass. | Allocation instrumentation reports no full feature-matrix allocation during a timed repetition. |
+| Task | Work | Done when | Status |
+| --- | --- | --- | :---: |
+| T-SEQ-01 | Implement direct single-threaded dense linear, bias, activation, and branch-combination operations. | Small matrix fixtures match hand-calculated results. | Completed |
+| T-SEQ-02 | Implement GCN normalized incoming aggregation with explicit-or-implicit self handling. | Weighted and unweighted fixtures match the equations in `semantics.md`. | Completed |
+| T-SEQ-03 | Implement GraphSAGE weighted non-self mean with a zero vector for an empty neighborhood. | Self-loop exclusion, weighted mean, and empty-neighbor fixtures pass. | Completed |
+| T-SEQ-04 | Implement GCN and GraphSAGE `forward_layer` algorithms using the shared sequential executor operations. | One layer of each type matches its worked semantic example. | Completed |
+| T-SEQ-05 | Implement `InferenceRuntime` with layer iteration and ping-pong feature buffers. | One-layer and multi-layer GCN and GraphSAGE outputs are correct with differing feature dimensions. | Completed |
+| T-SEQ-06 | Remove repeated allocations and graph/model reconstruction from the steady-state forward pass. | Allocation instrumentation reports no full feature-matrix allocation during a timed repetition. | Completed |
 
 ## 10. F-VERIFY — correctness and failure handling
 
-| Task | Work | Done when |
-| --- | --- | --- |
-| T-VER-01 | Encode independent GCN fixtures for direction, normalization, explicit/missing self-loops, bias, activation, and multiple layers. | Expected values are hand-calculated or generated independently of the native implementation and all fixtures pass sequentially. |
-| T-VER-02 | Encode independent GraphSAGE fixtures for non-self weighted mean, empty neighborhoods, separate branches, bias, activation, and multiple layers. | Expected values are independent and all fixtures pass sequentially. |
-| T-VER-03 | Implement shape-aware absolute/relative tolerance comparison with NaN/infinity handling. | Boundary-value tests for `atol`, `rtol`, shape mismatch, NaN, and infinity pass. |
-| T-VER-04 | Compare every required or equivalence-claimed OpenMP/CUDA result with the matching per-type sequential baseline. | An intentionally corrupted result is rejected and cannot be reported as equivalent. |
-| T-VER-05 | Add malformed-input and unsupported-composition tests. | Invalid CSC, weights, dimensions, layer data, and strategy combinations fail deterministically with diagnostics. |
-| T-VER-06 | Compare external-framework GCN and GraphSAGE outputs with their native sequential baselines. | Framework performance records are accepted only after the associated semantic checks pass. |
+| Task | Work | Done when | Status |
+| --- | --- | --- | :---: |
+| T-VER-01 | Encode independent GCN fixtures for direction, normalization, explicit/missing self-loops, bias, activation, and multiple layers. | Expected values are hand-calculated or generated independently of the native implementation and all fixtures pass sequentially. | Completed |
+| T-VER-02 | Encode independent GraphSAGE fixtures for non-self weighted mean, empty neighborhoods, separate branches, bias, activation, and multiple layers. | Expected values are independent and all fixtures pass sequentially. | Completed |
+| T-VER-03 | Implement shape-aware absolute/relative tolerance comparison with NaN/infinity handling. | Boundary-value tests for `atol`, `rtol`, shape mismatch, NaN, and infinity pass. | Completed |
+| T-VER-04 | Compare every required or equivalence-claimed OpenMP/CUDA result with the matching per-type sequential baseline. | An intentionally corrupted result is rejected and cannot be reported as equivalent. | Completed |
+| T-VER-05 | Add malformed-input and unsupported-composition tests. | Invalid CSC, weights, dimensions, layer data, and strategy combinations fail deterministically with diagnostics. | Completed |
+| T-VER-06 | Compare external-framework GCN and GraphSAGE outputs with their native sequential baselines. | Framework performance records are accepted only after the associated semantic checks pass. | Completed |
 
 ## 11. F-OMP-SELECTED — destination-owned OpenMP
 
-| Task | Work | Done when |
-| --- | --- | --- |
-| T-OMPV-01 | Implement destination-parallel GCN aggregation over complete CSC columns. | Each destination row has one owner, needs no aggregation atomic, and matches sequential GCN. |
-| T-OMPV-02 | Implement destination-parallel GraphSAGE non-self mean using the same work-mapping family. | Weighted, self-loop, and empty-neighbor cases match sequential GraphSAGE. |
-| T-OMPV-03 | Parallelize compatible dense and elementwise operations without changing layer semantics. | Complete multi-layer GCN and GraphSAGE models pass verification. |
-| T-OMPV-04 | Expose thread count, schedule, and chunk size and record the chosen values. | Static and at least one load-balancing configuration can be reproduced on skewed-degree graphs. |
-| T-OMPV-05 | Keep intermediate matrices in reusable host workspaces. | No full feature-matrix allocation occurs between layers or timed repetitions. |
+| Task | Work | Done when | Status |
+| --- | --- | --- | :---: |
+| T-OMPV-01 | Implement destination-parallel GCN aggregation over complete CSC columns. | Each destination row has one owner, needs no aggregation atomic, and matches sequential GCN. | Completed |
+| T-OMPV-02 | Implement destination-parallel GraphSAGE non-self mean using the same work-mapping family. | Weighted, self-loop, and empty-neighbor cases match sequential GraphSAGE. | Completed |
+| T-OMPV-03 | Parallelize compatible dense and elementwise operations without changing layer semantics using OpenMP and SIMD. | Complete multi-layer GCN and GraphSAGE models pass verification. | Completed |
+| T-OMPV-04 | Expose thread count and record static scheduling; schedule and chunk options are omitted by request. | Thread-count configurations can be reproduced with static scheduling. | Completed |
+| T-OMPV-05 | Keep intermediate matrices in reusable host workspaces. | No full feature-matrix allocation occurs between layers or timed repetitions. | Completed |
 
 ## 12. F-OMP-ADDITIONAL — conditional additional OpenMP mapping
 
 This feature is required only if an additional OpenMP mapping is selected in `semantics.md`. The edge-centric tasks below define one possible extension; they do not increase the minimum implementation count.
 
-| Task | Work | Done when |
-| --- | --- | --- |
-| T-OMPE-01 | Partition the flattened stored-edge range independently of CSC column boundaries. | A high-degree destination's edge range can be split across workers. |
-| T-OMPE-02 | Implement correct concurrent accumulation using atomics, private partials plus reduction, or another documented method. | Thread-sanitizer/race checks where available and numerical comparisons show no lost contributions. |
-| T-OMPE-03 | Add missing implicit GCN self messages in a separate node-parallel pass. | Explicit and absent self-loop fixtures match the sequential baseline without double counting. |
-| T-OMPE-04 | Complete the multi-layer GCN path using shared dense operations and workspace reuse. | The same saved GCN models run through vertex- and edge-centric OpenMP strategies. |
-| T-OMPE-05 | Record synchronization, scheduling, and private-buffer memory costs. | Benchmark output is sufficient to explain the performance/load-balance trade-off. |
+| Task | Work | Done when | Status |
+| --- | --- | --- | :---: |
+| T-OMPE-01 | Partition the flattened stored-edge range independently of CSC column boundaries. | A high-degree destination's edge range can be split across workers. | Optional — unselected in profile |
+| T-OMPE-02 | Implement correct concurrent accumulation using atomics, private partials plus reduction, or another documented method. | Thread-sanitizer/race checks where available and numerical comparisons show no lost contributions. | Optional — unselected in profile |
+| T-OMPE-03 | Add missing implicit GCN self messages in a separate node-parallel pass. | Explicit and absent self-loop fixtures match the sequential baseline without double counting. | Optional — unselected in profile |
+| T-OMPE-04 | Complete the multi-layer GCN path using shared dense operations and workspace reuse. | The same saved GCN models run through vertex- and edge-centric OpenMP strategies. | Optional — unselected in profile |
+| T-OMPE-05 | Record synchronization, scheduling, and private-buffer memory costs. | Benchmark output is sufficient to explain the performance/load-balance trade-off. | Optional — unselected in profile |
 
 ## 13. F-CUDA-CORE — device ownership and execution
 
-| Task | Work | Done when |
-| --- | --- | --- |
-| T-CUDA-01 | Implement move-safe RAII device buffers and non-owning kernel views for graph, metadata, matrices, and both layer parameter types. | Repeated allocate/move/free tests and CUDA sanitizers report no invalid ownership or access. |
-| T-CUDA-02 | Upload immutable graph/model data once and keep features/intermediates device-resident across layers. | A multi-layer run has no intermediate device-to-host feature transfer. |
-| T-CUDA-03 | Implement checked allocation, copy, launch, event, and synchronization wrappers with operation context. | Injected or naturally occurring CUDA failures produce useful diagnostics. |
-| T-CUDA-04 | Implement reusable device workspaces and timing events. | Timed repetitions reuse allocations and distinguish device compute from end-to-end time. |
+| Task | Work | Done when | Status |
+| --- | --- | --- | :---: |
+| T-CUDA-01 | Implement move-safe RAII device buffers and non-owning kernel views for graph, metadata, matrices, and both layer parameter types. | Repeated allocate/move/free tests and CUDA sanitizers report no invalid ownership or access. | Completed |
+| T-CUDA-02 | Upload immutable graph/model data once and keep features/intermediates device-resident across layers. | A multi-layer run has no intermediate device-to-host feature transfer. | Completed |
+| T-CUDA-03 | Implement checked allocation, copy, launch, event, and synchronization wrappers with operation context. | Injected or naturally occurring CUDA failures produce useful diagnostics. | Completed |
+| T-CUDA-04 | Implement reusable device workspaces and timing events. | Timed repetitions reuse allocations and distinguish device compute from end-to-end time. | Completed |
 
 ## 14. F-CUDA-SELECTED — CUDA mapping for both GNN types
 
-| Task | Work | Done when |
-| --- | --- | --- |
-| T-CUDAV-01 | Implement destination/feature-mapped GCN aggregation over CSC with a single logical owner per output element. | GCN fixtures and multi-layer workloads pass without aggregation atomics. |
-| T-CUDAV-02 | Implement destination/feature-mapped GraphSAGE non-self weighted mean. | GraphSAGE fixtures and multi-layer workloads match the sequential baseline. |
-| T-CUDAV-03 | Implement required dense, branch-combination, bias, and activation CUDA operations. | Complete GCN and GraphSAGE paths remain device-resident and pass verification. |
-| T-CUDAV-04 | Make block/grid geometry configurable and record it with results. | At least two valid launch configurations can be reproduced. |
+| Task | Work | Done when | Status |
+| --- | --- | --- | :---: |
+| T-CUDAV-01 | Implement destination/feature-mapped GCN aggregation over CSC with a single logical owner per output element. | GCN fixtures and multi-layer workloads pass without aggregation atomics. | Completed |
+| T-CUDAV-02 | Implement destination/feature-mapped GraphSAGE non-self weighted mean. | GraphSAGE fixtures and multi-layer workloads match the sequential baseline. | Completed |
+| T-CUDAV-03 | Implement required dense, branch-combination, bias, and activation CUDA operations. | Complete GCN and GraphSAGE paths remain device-resident and pass verification. | Completed |
+| T-CUDAV-04 | Make block/grid geometry configurable and record it with results. | At least two valid launch configurations can be reproduced. | Completed |
 
 ## 15. F-CUDA-ADDITIONAL — conditional additional CUDA mapping
 
 This feature is required only if an additional CUDA work mapping is selected in `semantics.md`. A shared-memory configuration of the selected mapping is covered separately by F-EXPERIMENTS and does not by itself require another end-to-end mapping.
 
-| Task | Work | Done when |
-| --- | --- | --- |
-| T-CUDAA-01 | Select and document a materially different strategy, such as edge-centric reduction, a different feature mapping, a coalesced layout, or message tiling. | The work assignment or memory-access design is demonstrably different from the selected CUDA mapping. |
-| T-CUDAA-02 | Implement correct normalized GCN aggregation for the selected strategy. | One-layer and multi-layer outputs match sequential GCN within tolerance. |
-| T-CUDAA-03 | Integrate the strategy through outer composition dispatch and shared layer algorithms. | The strategy requires no backend branch inside `forward_layer` or performance-critical loops. |
-| T-CUDAA-04 | Benchmark the additional mapping against the selected CUDA implementation on identical GCN workloads. | Timing, throughput, memory, launch configuration, and numerical verification are recorded. |
+| Task | Work | Done when | Status |
+| --- | --- | --- | :---: |
+| T-CUDAA-01 | Select and document a materially different strategy, such as edge-centric reduction, a different feature mapping, a coalesced layout, or message tiling. | The work assignment or memory-access design is demonstrably different from the selected CUDA mapping. | Optional — unselected in profile |
+| T-CUDAA-02 | Implement correct normalized GCN aggregation for the selected strategy. | One-layer and multi-layer outputs match sequential GCN within tolerance. | Optional — unselected in profile |
+| T-CUDAA-03 | Integrate the strategy through outer composition dispatch and shared layer algorithms. | The strategy requires no backend branch inside `forward_layer` or performance-critical loops. | Optional — unselected in profile |
+| T-CUDAA-04 | Benchmark the additional mapping against the selected CUDA implementation on identical GCN workloads. | Timing, throughput, memory, launch configuration, and numerical verification are recorded. | Optional — unselected in profile |
 
 ## 16. F-EXPERIMENTS — applicable optimization and storage studies
 
@@ -232,46 +232,46 @@ This feature is required only if an additional CUDA work mapping is selected in 
 
 ## 17. F-DATA — synthetic and public workloads
 
-| Task | Work | Done when |
-| --- | --- | --- |
-| T-DATA-01 | Select and reproducibly generate at least one of the scale-free, Erdos-Renyi, or small-world graph families; additional families are optional. | Repeated generation of the selected family yields identical canonical topology and metadata. |
-| T-DATA-02 | Vary node count, feature dimension, and model depth over the required experiment ranges while accounting for CPU and GPU memory. | Saved configurations cover at least one order of magnitude in graph size and multiple feature/depth values; omitted larger sizes and their limiting resource are documented. |
-| T-DATA-03 | Convert at least one public node-feature graph to the native bundle. | Source, license/citation, transformations, orientation, self-loop handling, and feature conversion are documented. |
-| T-DATA-04 | Generate or import reproducible GCN and GraphSAGE parameters for every workload. | Native and framework runners consume numerically identical parameter values. |
-| T-DATA-05 | Record exact stored-entry and per-layer processed-message counts. | Throughput denominators can be reconstructed for GCN and GraphSAGE. |
+| Task | Work | Done when | Status |
+| --- | --- | --- | :---: |
+| T-DATA-01 | Select and reproducibly generate at least one of the scale-free, Erdos-Renyi, or small-world graph families; additional families are optional. | Repeated generation of the selected family yields identical canonical topology and metadata. | Completed |
+| T-DATA-02 | Vary node count, feature dimension, and model depth over the required experiment ranges while accounting for CPU and GPU memory. | Saved configurations cover at least one order of magnitude in graph size and multiple feature/depth values; omitted larger sizes and their limiting resource are documented. | Completed |
+| T-DATA-03 | Convert at least one public node-feature graph to the native input files. | Source, license/citation, transformations, orientation, self-loop handling, and feature conversion are documented. | Completed |
+| T-DATA-04 | Generate or import reproducible GCN and GraphSAGE parameters for every workload. | Native and framework runners consume numerically identical parameter values. | Completed |
+| T-DATA-05 | Record exact stored-entry and per-layer processed-message counts. | Throughput denominators can be reconstructed for GCN and GraphSAGE. | Completed |
 
 ## 18. F-FRAMEWORK — required external comparison
 
-| Task | Work | Done when |
-| --- | --- | --- |
-| T-FRM-01 | Select and version at least one established GNN framework and document its execution environment. | The framework, dependencies, device, dtype, and execution mode are reproducible. |
-| T-FRM-02 | Implement a standalone adapter for the native bundle and result schema. | The runner loads the same topology, features, layer parameters, and configuration without linking into the native engine. |
-| T-FRM-03 | Map GCN orientation, self-loop, normalization, parameter layout, bias, and activation exactly. | Framework GCN output matches native sequential GCN on fixtures and benchmark workloads. |
-| T-FRM-04 | Map GraphSAGE non-self mean, empty-neighbor behavior, self/neighbor parameters, bias, and activation exactly. | Framework GraphSAGE output matches native sequential GraphSAGE on fixtures and benchmark workloads. |
-| T-FRM-05 | Define framework timing and memory boundaries with warm-up, synchronization, repetitions, and caching/preprocessing policy. | Throughput and peak-memory records can be interpreted beside native records without hidden setup work. |
-| T-FRM-06 | Run equivalent native/framework comparisons for both required GNN types. | Final tables include verified GCN and GraphSAGE results for the selected framework and native engine. |
+| Task | Work | Done when | Status |
+| --- | --- | --- | :---: |
+| T-FRM-01 | Select and version at least one established GNN framework and document its execution environment. | The framework, dependencies, device, dtype, and execution mode are reproducible. | Completed |
+| T-FRM-02 | Implement a standalone adapter for the native input files and result schema. | The runner loads the same topology, features, layer parameters, and configuration without linking into the native engine. | Completed |
+| T-FRM-03 | Map GCN orientation, self-loop, normalization, parameter layout, bias, and activation exactly. | Framework GCN output matches native sequential GCN on fixtures and benchmark workloads. | Completed |
+| T-FRM-04 | Map GraphSAGE non-self mean, empty-neighbor behavior, self/neighbor parameters, bias, and activation exactly. | Framework GraphSAGE output matches native sequential GraphSAGE on fixtures and benchmark workloads. | Completed |
+| T-FRM-05 | Define framework timing and memory boundaries with warm-up, synchronization, repetitions, and caching/preprocessing policy. | Throughput and peak-memory records can be interpreted beside native records without hidden setup work. | Completed |
+| T-FRM-06 | Run equivalent native/framework comparisons for both required GNN types. | Final tables include verified GCN and GraphSAGE results for the selected framework and native engine. | Completed |
 
 ## 19. F-BENCH — orchestration and measurement
 
-| Task | Work | Done when |
-| --- | --- | --- |
-| T-BENCH-01 | Implement warm-up and repeated measurement with documented central tendency and variability. | Raw samples and summaries are emitted for every configuration. |
-| T-BENCH-02 | Separate load/setup, compute, transfer, and end-to-end boundaries. | CPU, CUDA, and framework records state exactly what each timing includes. |
-| T-BENCH-03 | Compute nodes/s, stored-edges/s or processed-messages/s, and speedup against the matching sequential model type. | Metric formulas reproduce the exported values. |
-| T-BENCH-04 | Measure host and device peak memory with documented methods. | Representative native and framework configurations include reproducible peak-memory values. |
-| T-BENCH-05 | Sweep OpenMP thread counts and selected CUDA launch configurations. | Scaling tables/plots include exact thread and launch settings. |
-| T-BENCH-06 | Orchestrate required graph-size, feature-size, depth, degree-distribution, selected-implementation, applicable shared-memory, sparse/dense, and framework comparisons; compare additional mappings when present. | Every `BEN-COMP` requirement maps to at least one saved experiment set. |
-| T-BENCH-07 | Export commands, seeds, hardware/software metadata, verification outcome, and samples in machine-readable form. | A result row and its referenced configuration are sufficient to rerun the experiment. |
+| Task | Work | Done when | Status |
+| --- | --- | --- | :---: |
+| T-BENCH-01 | Implement warm-up and repeated measurement with documented central tendency and variability. | Raw samples and summaries are emitted for every configuration. | Completed |
+| T-BENCH-02 | Separate load/setup, compute, transfer, and end-to-end boundaries. | CPU, CUDA, and framework records state exactly what each timing includes. | Completed |
+| T-BENCH-03 | Compute nodes/s, stored-edges/s or processed-messages/s, and speedup against the matching sequential model type. | Metric formulas reproduce the exported values. | Completed |
+| T-BENCH-04 | Measure host and device peak memory with documented methods. | Representative native and framework configurations include reproducible peak-memory values. | Completed |
+| T-BENCH-05 | Sweep OpenMP thread counts and selected CUDA launch configurations. | Scaling tables/plots include exact thread and launch settings. | Completed |
+| T-BENCH-06 | Orchestrate required graph-size, feature-size, depth, degree-distribution, selected-implementation, applicable shared-memory, sparse/dense, and framework comparisons; compare additional mappings when present. | Every `BEN-COMP` requirement maps to at least one saved experiment set. | Completed |
+| T-BENCH-07 | Export commands, seeds, hardware/software metadata, verification outcome, and samples in machine-readable form. | A result row and its referenced configuration are sufficient to rerun the experiment. | Completed |
 
 ## 20. F-DELIVERY — documentation and presentation
 
-| Task | Work | Done when |
-| --- | --- | --- |
-| T-DEL-01 | Document supported host/CUDA environments and clean Meson/Ninja build commands. | A clean checkout builds sequential, OpenMP, CUDA, tests, and runner targets in each claimed environment. |
-| T-DEL-02 | Document CLI options, bundle schemas, dataset conversion, and example GCN/GraphSAGE commands. | A reader can reproduce one verified run of each required model type. |
-| T-DEL-03 | Produce tables and plots for all required comparisons with methodology and negative/neutral-result analysis. | Every plotted value traces to machine-readable records and a saved configuration. |
-| T-DEL-04 | Write the technical report covering semantics, architecture, work mappings, memory behavior, skewed degrees, correctness, limitations, and the rationale for the number and choice of CPU/CUDA implementations. | The report addresses every item required by `project.md` and `requirements.md`. |
-| T-DEL-05 | Prepare the presentation and a concise demonstration path. | The material fits the assigned presentation time and reproduces representative native and framework results. |
+| Task | Work | Done when | Status |
+| --- | --- | --- | :---: |
+| T-DEL-01 | Document supported host/CUDA environments and clean Meson/Ninja build commands. | A clean checkout builds sequential, OpenMP, CUDA, tests, and runner targets in each claimed environment. | Completed |
+| T-DEL-02 | Document CLI options, input file schemas, dataset conversion, and example GCN/GraphSAGE commands. | A reader can reproduce one verified run of each required model type. | Completed |
+| T-DEL-03 | Produce tables and plots for all required comparisons with methodology and negative/neutral-result analysis. | Every plotted value traces to machine-readable records and a saved configuration. | Completed |
+| T-DEL-04 | Write the technical report covering semantics, architecture, work mappings, memory behavior, skewed degrees, correctness, limitations, and the rationale for the number and choice of CPU/CUDA implementations. | The report addresses every item required by `project.md` and `requirements.md`. | In progress |
+| T-DEL-05 | Prepare the presentation and a concise demonstration path. | The material fits the assigned presentation time and reproduces representative native and framework results. | In progress |
 
 ## 21. Optional extensions
 

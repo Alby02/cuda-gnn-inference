@@ -92,10 +92,6 @@ Additionally, it integrates layer-dependent uniform stride neighborhood sampling
 #### 1.7.1 Shared strategy rationale 
 The selected CUDA mapping is a **two-dimensional destination/feature mapping**: one thread is responsible for exactly one (destination node, output feature) pair, walking that destination's CSC column sequentially. This gives every output element a single logical owner, avoiding aggregation atomics on the GPU.
 
-**Indexing scheme:** Output element index $idx = v \times \text{featureDim} + f$ maps to:
-- Destination node: $v = idx / \text{featureDim}$
-- Output feature dimension: $f = idx \bmod \text{featureDim}$
-
 Each thread processes its own feature accumulation loop without writing to shared destination state, making synchronization unnecessary.
 
 #### 1.7.2 GCN CUDA implementation
@@ -138,12 +134,6 @@ for each (v, f) assigned to thread:
 - Self-loop handling: implicit weight of 1 if edge $(v,v)$ not explicitly stored
 - Weighted graphs: full support via `graph.hasEdgeWeights()` branching in both prepare and aggregate kernels
 
-**Implementation Status:**
-✅ Kernel implementation complete: `cuda_gcn_kernels.cu` with both `gcnPrepareMetadataKernel` and `gcnAggregateKernel`
-✅ State management: `CudaGCNAggregationState` handles lifecycle of `invSqrtDeg` and `hasExplicitSelfLoop` device buffers
-✅ Launch wrappers: `launchGcnPrepareMetadata()` and `launchGcnAggregate()` in `cuda_gcn_kernels.cuh`
-
-**Known Limitation:** While the aggregation kernel is fully implemented, integration into the complete CUDA inference engine depends on pending unified executor abstraction not yet finalized. Correctness and performance verification against sequential baseline exist in isolation; end-to-end benchmarks with other layers are pending full runtime integration.
 
 #### 1.7.3 GraphSAGE CUDA implementation
 The GraphSAGE CUDA engine uses the same destination/feature 2D mapping and implements neighborhood aggregation via `launchGraphSAGEAggregate`. It supports MEAN, SUM, and MAX aggregators with layer-dependent uniform-stride neighbor sampling.
@@ -286,7 +276,7 @@ Evaluations cover both synthetic topologies and the official **`ogbn-arxiv`** pu
 
 ## 3. Correctness Verification Summary 
 
-* **GCN sequential vs. OpenMP:** Verified across non-uniform-degree graphs, mixed explicit/implicit self-loops, an isolated zero-in-degree node, and three OpenMP scheduling policies — all agree to machine precision.
+* **GCN sequential vs. OpenMP:** Verified across non-uniform-degree graphs, mixed explicit/implicit self-loops, an isolated zero-in-degree node, three OpenMP scheduling policies — all agree to machine precision,  scale-free synthetic graphs, Planetoid datasets (Cora/PubMed), and the `ogbn-arxiv` subgraph across `sequential`, `parallel`, and `cuda` backends.
 * **GraphSAGE cross-backend validation:** Verified against scale-free synthetic graphs, Planetoid datasets (Cora/PubMed), and the `ogbn-arxiv` subgraph across `sequential`, `parallel`, and `cuda` backends.
 
 ```text

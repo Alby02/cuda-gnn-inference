@@ -83,6 +83,13 @@ def run_sweep(
             export_dense_matrix(w_filename, w)
             weight_filenames.append(w_filename)
 
+        model_filename = f"{out_prefix}_gcn.model"
+        with open(model_filename, 'w', encoding='utf-8') as model_file:
+            model_file.write(f'GNN_MODEL 1\nlayers {depth}\n')
+            for i, filename in enumerate(weight_filenames):
+                activation = 'NONE' if i == depth - 1 else 'RELU'
+                model_file.write(f'layer GCN {activation} "{os.path.basename(filename)}" "-" "-"\n')
+
         manifest_entries.append({
             "tag": tag,
             "graph_type": graph_type,
@@ -94,6 +101,7 @@ def run_sweep(
             "graph_file": stats["graph_filename"],
             "features_file": stats["feats_filename"],
             "gcn_weight_files": weight_filenames,
+            "model_file": model_filename,
             "layer_dims": layer_dims,
             **message_counts,
         })

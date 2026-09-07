@@ -35,7 +35,7 @@ __global__ void graphSAGEAggregateKernel(DeviceGraph graph, DeviceMatrix input, 
             const std::uint64_t u = neighbors[e];
             if (mean && u == v)
                 continue;
-            const float w = mean && weighted ? weights[e] : 1.0F;
+            const float w = (!mean && weighted) ? weights[e] : 1.0F;
             totalWeight += w;
             const float val = w * input(static_cast<std::size_t>(u), f);
 

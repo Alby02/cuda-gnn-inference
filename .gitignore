@@ -6,3 +6,4 @@ dataset_out/
 __pycache__/
 *.py[cod]
 dataset/
+experiment_results/

@@ -86,7 +86,7 @@ public:
                     const bool mean = aggType == gnn::layers::GraphSAGEAggregationType::MEAN;
                     if (mean && v == u)
                         continue;
-                    const float weight = mean && graph.hasEdgeWeights() ? weights[i] : 1.0f;
+                    const float weight = (!mean && graph.hasEdgeWeights()) ? weights[i] : 1.0f;
                     total_weight += weight;
                     const float* in_ptr = input_feats.data() + v * feat_dim;
 #pragma omp simd

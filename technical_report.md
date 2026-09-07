@@ -103,6 +103,8 @@ The selected CUDA mapping is a **two-dimensional destination/feature mapping**: 
 | DeepNet-3L | 128 | 3 | parallel | 1494.78 ± 18.22 | 1971.76 | 53,519.6 | — | 1.67x |
 | DeepNet-3L | 128 | 3 | cuda | ~90.28 (E2E) | 90.28 | 886,145.0 | 311.0 | 27.61x |
 
+#### For more detailed results, please refer to the documentation.
+
 ### 3.2 Key Insights & Bottleneck Analysis
 * **GPU Acceleration Threshold Effect:** For small graphs (Nodes < 3K), fixed overheads (PCIe transfer, kernel launch) dominate, resulting in speedups of only 0.10x to 1.15x. For large graphs (Nodes > 80K), the GPU overwhelmingly dominates, achieving 10.97x to 60.16x speedup.
 * **The `WideHidden-2L` Anomaly:** Wide intermediate projection matrices exceed fast CPU L1/L2 cache capacities, causing severe memory stall cycles. On CPU, this configuration exhibits the worst latency (8507.83 ms). Under GPU acceleration, these dense projection operations map perfectly to CUDA cores, computing in just 117.23 ms (60.16x speedup).

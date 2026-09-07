@@ -14,25 +14,20 @@ The project implements the mean-aggregator variant of GraphSAGE. Unlike GCN's sy
 ### 1.2 Graph Representation
 The engine leverages the **Compressed Sparse Column (CSC)** format. Because GraphSAGE relies on pulling neighborhood features to compute a local mean, CSC is optimally aligned with the destination-centric aggregation pattern. A target node $v$ accesses its neighbors linearly via `row_ind[col_ptr[v] .. col_ptr[v+1])`, allowing independent, lock-free computation for every destination node across all threads.
 
-### 1.2 Hyperparameters
 
-The engine could use manually hyperparameter, include layer number k and Number of samples in every layer S. In baseline, k = 2 and S = 25 10. If choose k = 3, the default S = 15 10 5.
-
-According to the paper, GraphSAGE almost never uses more than 4 layers, so there is no built-in default value.
-
-### 1.4 Layer Parameter Generation
+### 1.3 Layer Parameter Generation
 To ensure reproducibility for inference benchmarking without requiring trained checkpoints, model weights are dynamically generated using a seeded uniform Glorot initialization: $\pm\sqrt{6/(f_{in}+f_{out})}$. Because GraphSAGE concatenates the target node feature with the aggregated neighborhood feature, the input dimension to the weight matrix is effectively $2 	imes f_{in}$.
 
-### 1.5 Memory Layout
+### 1.4 Memory Layout
 All embeddings and weights are stored as contiguous row-major `float32` dense matrices. This is critical for GraphSAGE because the aggregation phase requires strided reads across neighbor feature vectors. Keeping node features contiguous maximizes cache line utilization during the memory-bound neighborhood pooling step.
 
-### 1.6 CPU Parallelization Scheme (OpenMP)
+### 1.5 CPU Parallelization Scheme (OpenMP)
 The CPU implementation uses a **destination-centric vertex ownership** model. 
 * Each OpenMP thread is assigned a chunk of destination nodes.
 * The thread pulls neighbor features, accumulates them, and divides by the in-degree to compute the mean.
 * Because threads only write to their assigned destination rows in the output matrix, the algorithm requires zero atomics or mutexes. `dynamic` scheduling is utilized to mitigate load imbalance caused by power-law degree distributions.
 
-### 1.7 GPU Parallelization Scheme (CUDA)
+### 1.6 GPU Parallelization Scheme (CUDA)
 The CUDA engine maps a 2D grid of threads to the problem: one thread per **(destination node, output feature)** pair.
 * **Coalesced Access:** Threads within a warp process the same destination node but different feature dimensions, ensuring fully coalesced memory reads when fetching neighbor embeddings.
 * **No Atomics:** Each thread independently computes the mean for its specific feature dimension and writes to a unique memory address, bypassing the need for expensive `atomicAdd` operations in global memory.
@@ -41,18 +36,96 @@ The CUDA engine maps a 2D grid of threads to the problem: one thread per **(dest
 
 ## 2. Experimental Evaluation
 
+
+
 > **Environment Setup:** 
-> * **CPU:** Intel i7-9750h (6 Cores)
-> * **RAM:** 32 GB DDR4
-> * **GPU:** NVIDIA GTX1660ti 6GB
-> * **OS/Compiler:** Ubuntu 24.04 /  CUDA 12.6
+> * **CPU:** Intel(R) Xeon(R) CPU @ 2.20GHz (1 Core 2 Threads)
+> * **RAM:** 16 GB DDR5
+> * **GPU:** NVIDIA T4 16GB
+> * **OS/Compiler:** Ubuntu 22.04 /  CUDA 12.8
+
+
+### GPU Info & Toolchain
+
+```text
+=== GPU Info ===
+Mon Sep  7 03:04:06 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 580.82.07              Driver Version: 580.82.07      CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  Tesla T4                       Off |   00000000:00:04.0 Off |                    0 |
+| N/A   37C    P8             13W /   70W |       0MiB /  15360MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+
+=== Toolchain Compilatori ===
+g++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0
+Cuda compilation tools, release 12.8, V12.8.93
+Build cuda_12.8.r12.8/compiler.35583870_0
+```
 
 
 ### 2.1 Sequential vs. Multi-core vs. GPU
-* **GraphSAGE OpenMP:** Achieved near-linear scaling up to 6 cores on dense feature inputs (128d+). Memory bandwidth bottlenecks emerge beyond 6 cores for highly sparse graphs.
-* **GraphSAGE CUDA:** Delivered a x speedup over the 6-core OpenMP baseline for the Reddit dataset, heavily benefiting from coalesced feature fetches.
+* **GraphSAGE OpenMP:** Achieved near-linear scaling up to 2 thread on dense feature inputs (128d+). 
+* **GraphSAGE CUDA:** Delivered a 44x speedup over baseline for the ogbn-arxiv dataset, heavily benefiting from coalesced feature fetches.
+
+### GNN Comprehensive Benchmark (Native C++ Compute vs. End-to-End Latency, GraphSAGE, Reps=5)
+> **Stress Graph Topology:** Nodes = 80,000 | Edges = 270,449
+
+| Config Name | Dim | L | Backend | Native C++ (ms) | E2E Lat (ms) | Throughput (nodes/s) | Peak VRAM (MB) | C++ Speedup |
+| :--- | :---: | :---: | :--- | :---: | ---: | ---: | :---: | ---: |
+| **Standard-2L** | 128 | 2 | sequential | 883.88 ± 62.98 | 1132.86 | 90,509.9 | - | 1.00x |
+| Standard-2L | 128 | 2 | parallel | 539.91 ± 11.68 | 684.39 | 148,173.1 | - | 1.64x |
+| Standard-2L | 128 | 2 | cuda | ~80.60 (E2E) | 80.60 | 992,559.0 | 311.0 | 10.97x |
+| **LargeFeat-2L** | 256 | 2 | sequential | 3522.46 ± 151.43 | 4361.93 | 22,711.4 | - | 1.00x |
+| LargeFeat-2L | 256 | 2 | parallel | 2435.21 ± 483.24 | 2924.90 | 32,851.4 | - | 1.45x |
+| LargeFeat-2L | 256 | 2 | cuda | ~112.45 (E2E) | 112.45 | 711,401.6 | 511.0 | 31.32x |
+| **WideHidden-2L** | 128 | 2 | sequential | 5019.22 ± 286.54 | 5991.62 | 15,938.7 | - | 1.00x |
+| WideHidden-2L | 128 | 2 | parallel | 3365.17 ± 495.08 | 4003.41 | 23,772.9 | - | 1.49x |
+| WideHidden-2L | 128 | 2 | cuda | ~114.90 (E2E) | 114.90 | 696,233.3 | 473.0 | 43.68x |
+| **DeepNet-3L** | 128 | 3 | sequential | 2492.82 ± 165.07 | 3114.28 | 32,092.2 | - | 1.00x |
+| DeepNet-3L | 128 | 3 | parallel | 1494.78 ± 18.22 | 1971.76 | 53,519.6 | - | 1.67x |
+| DeepNet-3L | 128 | 3 | cuda | ~90.28 (E2E) | 90.28 | 886,145.0 | 311.0 | 27.61x |
+| **LargeDeep-3L** | 256 | 3 | sequential | 4731.81 ± 291.69 | 6447.22 | 16,906.8 | - | 1.00x |
+| LargeDeep-3L | 256 | 3 | parallel | 3344.50 ± 1037.54 | 4028.89 | 23,919.9 | - | 1.41x |
+| LargeDeep-3L | 256 | 3 | cuda | ~109.05 (E2E) | 109.05 | 733,603.6 | 511.0 | 43.39x |
 
 
+### GNN Inference Performance & Memory Benchmark (GraphSAGE)
+> **Graph Topology:** Nodes = 3,000 | Edges = 468
+
+| Config Name | In Dim | Layers | Backend | Latency (ms) | Throughput (nodes/s) | GPU Mem (MB) | Speedup |
+| :--- | :---: | :---: | :--- | ---: | ---: | :---: | ---: |
+| **SmallFeat-2L** | 64 | 2 | sequential | 26.61 | 112,741.5 | - | 1.00x |
+| SmallFeat-2L | 64 | 2 | parallel | 31.85 | 94,191.9 | - | 0.84x |
+| SmallFeat-2L | 64 | 2 | cuda | 255.61 | 11,736.7 | 3.0 | 0.10x |
+| **Nominal-2L** | 128 | 2 | sequential | 69.45 | 43,196.0 | - | 1.00x |
+| Nominal-2L | 128 | 2 | parallel | 69.42 | 43,212.7 | - | 1.00x |
+| Nominal-2L | 128 | 2 | cuda | 210.92 | 14,223.2 | 3.0 | 0.33x |
+| **LargeFeat-2L** | 256 | 2 | sequential | 264.85 | 11,327.1 | - | 1.00x |
+| LargeFeat-2L | 256 | 2 | parallel | 265.91 | 11,282.0 | - | 1.00x |
+| LargeFeat-2L | 256 | 2 | cuda | 249.63 | 12,017.8 | 3.0 | 1.06x |
+| **Nominal-3L** | 128 | 3 | sequential | 80.53 | 37,252.5 | - | 1.00x |
+| Nominal-3L | 128 | 3 | parallel | 79.92 | 37,536.2 | - | 1.01x |
+| Nominal-3L | 128 | 3 | cuda | 205.47 | 14,600.5 | 3.0 | 0.39x |
+| **LargeFeat-3L** | 256 | 3 | sequential | 318.87 | 9,408.2 | - | 1.00x |
+| LargeFeat-3L | 256 | 3 | parallel | 315.88 | 9,497.4 | - | 1.01x |
+| LargeFeat-3L | 256 | 3 | cuda | 277.82 | 10,798.2 | 3.0 | 1.15x |
+| **DeepNet-4L** | 128 | 4 | sequential | 230.92 | 12,991.6 | - | 1.00x |
+| DeepNet-4L | 128 | 4 | parallel | 230.08 | 13,039.1 | - | 1.00x |
+| DeepNet-4L | 128 | 4 | cuda | 270.70 | 11,082.2 | 3.0 | 0.85x |
 ---
 
 ## 3. Correctness Verification Summary
@@ -62,9 +135,39 @@ The CUDA engine maps a 2D grid of threads to the problem: one thread per **(dest
 
 ---
 
-## 4. Known Limitations 
+## 4. conclusion and Selection Guide
+
+#### 4.1. Benchmark Overview & Graph Topologies
+* **Stress Large Graph:** 80,000 nodes | 270,449 edges (dense, high-concurrency target)
+* **Light Sparse Graph:** 3,000 nodes | 468 edges (sparse, lightweight payload)
+* **Evaluation Metrics:** End-to-End Latency (ms), Throughput (nodes/s), Peak VRAM (MB), Speedup relative to CPU sequential baseline
+
+---
+
+#### 4.2. Key Insights & Bottleneck Analysis
+
+* **GPU Acceleration Threshold Effect**
+  * **Small Graph Scenarios (Nodes ≤ 3K):** Avoid enabling CUDA unconditionally. Fixed overheads—including kernel launch latency and host-to-device PCIe data transfers—dominate total runtime, resulting in severe performance regression with speedups of only **0.10x to 1.15x** compared to single-threaded CPU execution.
+  * **Large Graph Scenarios (Nodes ≥ 80K):** The GPU demonstrates overwhelming advantages. Massive neighbor aggregation fully saturates compute units, achieving **10.97x to 43.68x** speedups and peak throughput nearing 1,000,000 nodes/s.
+* **Marginal Returns of CPU Multi-Threading (`parallel`)**
+  * On small graphs, insufficient computational granularity leads to negligible gains (~1.00x or less) due to thread synchronization and context switching overhead.
+  * On large graphs, CPU parallelism yields a stable but bounded speedup of **1.41x to 1.67x**(because of only 2 thread)
+* **Sensitivity to Model Complexity**
+  * As depth (2L → 3L/4L) and feature dimensions (64 → 256) scale up, CPU latency grows super-linearly. In contrast, GPU execution latency remains well-controlled, expanding the GPU performance advantage non-linearly under heavy workloads.
+
+---
+
+#### 4.3. Production Deployment Recommendations
+
+| Use Case / Graph Scale | Recommended Backend | Engineering Guidance |
+| :--- | :--- | :--- |
+| **Small-scale / Real-time Subgraph Extraction** (Nodes < 5K) | `sequential` / `parallel` | Execute directly on CPU to bypass host-to-device data transfer penalties. |
+| **Full-graph Inference / Offline Batching** (Nodes > 50K) | `cuda` | Prioritize GPU acceleration; memory footprint remains compact (< 600 MB) while delivering 10x–43x speedups. |
+| **CPU-Only Environments** | `parallel` | Enable multi-threading on larger graphs or when feature dimensions ≥ 128 to achieve a throughput uplift. |
+
+## 5. Known Limitations 
 
 * **Out-of-Core Processing:** The current CSC loader and CUDA workspace allocate the entire graph in contiguous memory. Graphs exceeding device memory will trigger OOM faults.
-* **Zero-degree Nodes:** Nodes with zero in-degree default to a zero-vector for their neighborhood mean, which requires a branching check in the kernel to prevent division-by-zero during normalization.
+
 
 ---

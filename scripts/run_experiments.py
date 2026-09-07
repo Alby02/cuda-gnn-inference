@@ -3,6 +3,7 @@ import argparse
 import csv
 import itertools
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -209,7 +210,7 @@ def plot_results(root, workloads, samples, comparisons):
             for (tag, model, label), row in measurements.items():
                 workload = by_tag[tag]
                 if model == kind and dimension in workload['axes']:
-                    groups.setdefault(label, []).append((workload[dimension], float(row['mean_ms']), float(row['stddev_ms'])))
+                    groups.setdefault(label, []).append((workload[dimension], float(row['mean_ms'] or 0), float(row['stddev_ms'] or 0)))
             for label, values in sorted(groups.items()):
                 values.sort()
                 ax.errorbar([v[0] for v in values], [v[1] for v in values],
@@ -227,13 +228,25 @@ def plot_results(root, workloads, samples, comparisons):
         rows = [r for r in comparisons if r['workload'] == workload['tag']]
         labels = [f'{r["model_types"].split(";")[0]} {r["native_backend"]}\nt={r["threads"]} block={r["block_size"]}' for r in rows]
         fig, ax = plt.subplots(figsize=(max(7, len(rows)), 5), constrained_layout=True)
-        ax.bar(range(len(rows)), [float(r['native_speedup']) for r in rows])
+        speedups = [float(r['native_speedup']) if r.get('native_speedup') and str(r['native_speedup']).strip() else 0.0 for r in rows]
+        ax.bar(range(len(rows)), speedups)
         ax.set_xticks(range(len(rows)), labels, rotation=35, ha='right')
         ax.axhline(1, color='black', linewidth=1)
         ax.set(ylabel='PyG compute / native compute (>1: native faster)', title=workload['tag'])
         for extension in ('png', 'svg'):
             fig.savefig(plots / f'{workload["tag"]}-speedup.{extension}', dpi=160)
         plt.close(fig)
+
+
+def default_cpu_threads():
+    count = os.cpu_count() or 1
+    threads, t = [], 1
+    while t < count:
+        threads.append(t)
+        t *= 2
+    if count not in threads:
+        threads.append(count)
+    return threads
 
 
 def main():
@@ -246,7 +259,8 @@ def main():
     parser.add_argument('--real-hidden', type=int, default=32)
     parser.add_argument('--backend', nargs='+', choices=['sequential', 'parallel', 'cuda'], default=None,
                         help='Execution backends (defaults to all supported by native binary)')
-    parser.add_argument('--threads', nargs='+', type=int, default=[1, 4])
+    parser.add_argument('--threads', nargs='+', type=int, default=default_cpu_threads(),
+                        help='Thread counts for parallel CPU backend (default: 2^x scaling up to cpu_count)')
     parser.add_argument('--block-size', nargs='+', type=int, default=[256])
     parser.add_argument('--nodes', nargs='+', type=int, default=[1000, 10000])
     parser.add_argument('--widths', nargs='+', type=int, default=[32, 128])

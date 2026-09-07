@@ -3,6 +3,7 @@ import argparse
 import csv
 import json
 import math
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -26,6 +27,17 @@ def embedding_error(actual_path, reference_path, atol, rtol):
     return passed, max((abs(a - b) for a, b in zip(actual.values, reference.values)), default=0.0)
 
 
+def default_cpu_threads():
+    count = os.cpu_count() or 1
+    threads, t = [], 1
+    while t < count:
+        threads.append(t)
+        t *= 2
+    if count not in threads:
+        threads.append(count)
+    return threads
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--native', required=True)
@@ -34,7 +46,8 @@ def main(argv=None):
     parser.add_argument('--model', nargs='+', required=True)
     parser.add_argument('--backend', nargs='+', choices=['sequential', 'parallel', 'cuda'],
                         default=['sequential', 'parallel'])
-    parser.add_argument('--threads', nargs='+', type=int, default=[1, 2, 4])
+    parser.add_argument('--threads', nargs='+', type=int, default=default_cpu_threads(),
+                        help='Thread counts for parallel CPU backend (default: 2^x scaling up to cpu_count)')
     parser.add_argument('--block-size', nargs='+', type=int, default=[256])
     parser.add_argument('--warmups', type=int, default=2)
     parser.add_argument('--repetitions', type=int, default=10)

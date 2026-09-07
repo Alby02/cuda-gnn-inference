@@ -292,7 +292,7 @@ extensions not selected in the baseline project profile (`semantics.md`).
 | T-CUDAV-01, T-CUDAV-04 (GCN) | CUDA GCN aggregation and launch configurations | `s362415` | Completed |
 | T-CUDAV-02, T-CUDAV-04 (GraphSAGE) | CUDA GraphSAGE aggregation and launch configurations | `s296248` | Completed |
 | T-CUDAA-01–T-CUDAA-04 | Conditional additional CUDA mapping | `s296248` | Optional |
-| T-EXP-01–T-EXP-03 | Shared-memory and sparse/dense studies | `s296248` | Optional |
+| T-EXP-01–T-EXP-03 | Shared-memory and sparse/dense studies | `s296248` | Completed |
 | T-DATA-02, T-DATA-04/T-DATA-05 (GCN) | Synthetic workload ranges and GCN parameters/counts | `s362415` | Completed |
 | T-DATA-04/T-DATA-05 (GraphSAGE) | GraphSAGE parameters/counts | `s296248` | Completed |
 | T-FRM-01, T-FRM-02, T-FRM-05 | Shared external-framework adapter and measurement boundaries | `s360540` | Completed |
@@ -303,8 +303,8 @@ extensions not selected in the baseline project profile (`semantics.md`).
 | T-BENCH-03–T-BENCH-06 (CUDA/GraphSAGE) | CUDA configurations, memory, and GraphSAGE benchmark results | `s296248` | Completed |
 | T-DEL-01–T-DEL-02 | Build, CLI, bundle, and run documentation | `s360540` | Completed |
 | T-DEL-03 | Comparison plots and visualization scripts | `s362415`, `s296248` | Completed |
-| T-DEL-04 | Technical report (architecture, evaluation, analysis) | All members | In progress |
-| T-DEL-05 | Presentation and live demonstration path | All members | In progress |
+| T-DEL-04 | Technical report (architecture, evaluation, analysis) | All members | Completed |
+| T-DEL-05 | Presentation and live demonstration path | All members | Completed |
 
 Detailed acceptance criteria for every task are in [doc/features.md](doc/features.md#61-three-person-delivery-split).
 

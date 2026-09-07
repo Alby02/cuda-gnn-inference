@@ -204,6 +204,57 @@ Build cuda_12.6.r12.6/compiler.35059454_0
 * **Sequential vs. OpenMP:** Validated against scale-free synthetic graphs and Planetoid (Cora/PubMed). Both execution modes output identical FP32 matrices within an absolute tolerance of `1e-6`. 
 * **OpenMP vs. CUDA:** Outputs match host implementations strictly within hardware floating-point summation rounding limits.
 
+```text
+=== GraphSAGE binary data and model configuration generated successfully ===
+
+========== OGB ogbn-arxiv GraphSAGE Subgraph Test ==========
+
+$ /home/cheng/cuda-gnn-inference/builddir/gnn --backend sequential --graph /home/cheng/cuda-gnn-inference/ogb_arxiv_graphsage_test/graph.bin_graph --features /home/cheng/cuda-gnn-inference/ogb_arxiv_graphsage_test/graph_feats.bin_matrix --model /home/cheng/cuda-gnn-inference/ogb_arxiv_graphsage_test/model.txt --repetitions 1
+Compute mean 6.80829 ms; population stddev 0 ms
+  [0.57143, 0.0582487, 0, 0.0590733, 0.238507, 0.149475, 0, 0, ...]
+  [0.241749, 0.162322, 0, 0.102209, 0.164699, 0.125107, 0.147295, 0, ...]
+  [0.486126, 0.0878042, 0.0151162, 0, 0.300069, 0.162624, 0, 0, ...]
+  [0.158805, 0.213328, 0, 0.00707729, 0.135569, 0.331292, 0.0604539, 0, ...]
+  [0.533071, 0.0551893, 0, 0.180924, 0.240373, 0.131579, 0, 0, ...]
+  [0.25018, 0.10248, 0.0548419, 0.124937, 0.163779, 0.20605, 0.0278861, 0.0528907, ...]
+  [0.445875, 0.102173, 0.0663894, 0.155614, 0.275975, 0.0991397, 0, 0, ...]
+  [0.359601, 0.0847997, 0, 0.0350634, 0.167376, 0.29941, 0.0290787, 0, ...]
+  [0.171659, 0.032967, 0.00076012, 0.026427, 0.0424468, 0.263124, 0, 0, ...]
+  [0.380543, 0.150746, 0.0184316, 0.228216, 0.198126, 0.251349, 0, 0.0935062, ...]
+  ... (1990 more rows)
+
+$ /home/cheng/cuda-gnn-inference/builddir/gnn --backend parallel --graph /home/cheng/cuda-gnn-inference/ogb_arxiv_graphsage_test/graph.bin_graph --features /home/cheng/cuda-gnn-inference/ogb_arxiv_graphsage_test/graph_feats.bin_matrix --model /home/cheng/cuda-gnn-inference/ogb_arxiv_graphsage_test/model.txt --repetitions 1
+Compute mean 6.86281 ms; population stddev 0 ms
+  [0.57143, 0.0582487, 0, 0.0590733, 0.238507, 0.149475, 0, 0, ...]
+  [0.241749, 0.162322, 0, 0.102209, 0.164699, 0.125107, 0.147295, 0, ...]
+  [0.486126, 0.0878042, 0.0151162, 0, 0.300069, 0.162624, 0, 0, ...]
+  [0.158805, 0.213328, 0, 0.00707729, 0.135569, 0.331292, 0.0604539, 0, ...]
+  [0.533071, 0.0551893, 0, 0.180924, 0.240373, 0.131579, 0, 0, ...]
+  [0.25018, 0.10248, 0.0548419, 0.124937, 0.163779, 0.20605, 0.0278861, 0.0528907, ...]
+  [0.445875, 0.102173, 0.0663894, 0.155614, 0.275975, 0.0991397, 0, 0, ...]
+  [0.359601, 0.0847997, 0, 0.0350634, 0.167376, 0.29941, 0.0290787, 0, ...]
+  [0.171659, 0.032967, 0.00076012, 0.026427, 0.0424468, 0.263124, 0, 0, ...]
+  [0.380543, 0.150746, 0.0184316, 0.228216, 0.198126, 0.251349, 0, 0.0935062, ...]
+  ... (1990 more rows)
+
+$ /home/cheng/cuda-gnn-inference/builddir/gnn --backend cuda --graph /home/cheng/cuda-gnn-inference/ogb_arxiv_graphsage_test/graph.bin_graph --features /home/cheng/cuda-gnn-inference/ogb_arxiv_graphsage_test/graph_feats.bin_matrix --model /home/cheng/cuda-gnn-inference/ogb_arxiv_graphsage_test/model.txt --repetitions 1
+  [0.57143, 0.0582487, 0, 0.0590733, 0.238507, 0.149475, 0, 0, ...]
+  [0.241749, 0.162322, 0, 0.102209, 0.164699, 0.125107, 0.147295, 0, ...]
+  [0.486126, 0.0878043, 0.0151162, 0, 0.300069, 0.162624, 0, 0, ...]
+  [0.158805, 0.213328, 0, 0.00707729, 0.135569, 0.331292, 0.0604539, 0, ...]
+  [0.533071, 0.0551893, 0, 0.180924, 0.240373, 0.131579, 0, 0, ...]
+  [0.25018, 0.10248, 0.0548419, 0.124937, 0.163779, 0.20605, 0.0278861, 0.0528907, ...]
+  [0.445875, 0.102173, 0.0663894, 0.155614, 0.275975, 0.0991397, 0, 0, ...]
+  [0.359601, 0.0847997, 0, 0.0350634, 0.167376, 0.29941, 0.0290787, 0, ...]
+  [0.171659, 0.032967, 0.000760132, 0.0264269, 0.0424469, 0.263124, 0, 0, ...]
+  [0.380543, 0.150746, 0.0184316, 0.228216, 0.198126, 0.251349, 0, 0.0935062, ...]
+  ... (1990 more rows)
+
+--> OK: OGB ogbn-arxiv GraphSAGE Subgraph Test - All three backends matched numerically, output shape: (10, 8)
+
+🎉 GraphSAGE test passed successfully!
+```
+
 ---
 
 ## 4. conclusion and Selection Guide

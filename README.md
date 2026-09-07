@@ -287,11 +287,11 @@ extensions not selected in the baseline project profile (`semantics.md`).
 | T-OMPV-03, T-OMPV-05 | Common OpenMP dense/elementwise operations and workspace | `s360540` | Completed |
 | T-OMPV-01, T-OMPV-04 (GCN) | Destination-owned OpenMP GCN and its configurations | `s362415` | Completed |
 | T-OMPV-02, T-OMPV-04 (GraphSAGE) | Destination-owned OpenMP GraphSAGE and its configurations | `s296248` | Completed |
-| T-OMPE-01–T-OMPE-05 | Conditional additional OpenMP mapping | `s296248` | Optional |
+| T-OMPE-01–T-OMPE-05 | Conditional additional OpenMP mapping | `s296248` | Completed |
 | T-CUDA-01–T-CUDA-04, T-CUDAV-03 | CUDA ownership/runtime and common CUDA operations | `s360540` | Completed |
 | T-CUDAV-01, T-CUDAV-04 (GCN) | CUDA GCN aggregation and launch configurations | `s362415` | Completed |
 | T-CUDAV-02, T-CUDAV-04 (GraphSAGE) | CUDA GraphSAGE aggregation and launch configurations | `s296248` | Completed |
-| T-CUDAA-01–T-CUDAA-04 | Conditional additional CUDA mapping | `s296248` | Optional |
+| T-CUDAA-01–T-CUDAA-04 | Conditional additional CUDA mapping | `s296248` | Completed |
 | T-EXP-01–T-EXP-03 | Shared-memory and sparse/dense studies | `s296248` | Completed |
 | T-DATA-02, T-DATA-04/T-DATA-05 (GCN) | Synthetic workload ranges and GCN parameters/counts | `s362415` | Completed |
 | T-DATA-04/T-DATA-05 (GraphSAGE) | GraphSAGE parameters/counts | `s296248` | Completed |

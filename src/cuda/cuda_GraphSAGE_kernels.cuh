@@ -16,10 +16,11 @@ using DeviceMatrix = Matrix<DeviceBuffer<float>>;
 struct GraphSAGELaunchConfig {
     unsigned int aggregateThreadsPerBlock{256};
     std::size_t maxBlocks{65535};
+    int maxSamples{0};
 };
 
 void launchGraphSAGEAggregate(DeviceGraph graph, DeviceMatrix input, DeviceMatrix output,
                               gnn::layers::GraphSAGEAggregationType aggType,
                               GraphSAGELaunchConfig config = {});
 
-} // namespace gnn::cuda
+}

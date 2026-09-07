@@ -241,7 +241,8 @@ $ /home/cheng/cuda-gnn-inference/builddir/gnn --backend cuda --graph /home/cheng
 --> OK: OGB ogbn-arxiv GraphSAGE Subgraph Test - All three backends matched numerically, output shape: (10, 8)
 
 🎉 GraphSAGE test passed successfully!
-···
+```
+
 ---
 
 ## 4. Known Limitations 

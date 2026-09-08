@@ -84,7 +84,8 @@ flowchart TD
 | [Semantic Contract](doc/semantics.md) | Exact GCN/GraphSAGE mathematics, graph conventions, and selected parallel mappings. |
 | [Environment Setup Instructions](doc/environment.md) | Setup guide for Windows (MSYS2 UCRT64), Linux, WSL, and Google Colab. |
 | [GNN & Graph Knowledge Base](doc/knowledge.md) | Mathematical formulation of GCN/GraphSAGE and sparse graph storage (CSR/CSC). |
-
+| [GCN Specification](doc/GCN.md) | Summarization of GCN logic, implementation and results. |
+| [GraphSAGE Specification](doc/knowledge.md) | Summarization of GraphSAGE logic, implementation and results. |
 
 
 ---

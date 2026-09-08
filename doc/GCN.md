@@ -122,5 +122,4 @@ The `w=128` row is a documented anomaly rather than a hidden problem: at this wi
 ## 5. Known Limitations
 
 * **Single hardware environment:** unlike the GraphSAGE evaluation (which was cross-checked on a second workstation with a GTX 1660 Ti and 12 CPU threads), this GCN sweep was run only on the 2-vCPU / Tesla T4 Colab environment; OpenMP scaling beyond 2–4 threads and the width-128 CPU anomaly (§2.6) have not yet been re-verified on higher-core-count hardware.
-* **No public-dataset GCN benchmark yet:** this sweep uses only the synthetic skewed-degree generator described in §2.1; a public dataset (e.g. `ogbn-arxiv`, Cora) run analogous to the GraphSAGE one in `doc/GraphSAGE.md §2.1` is planned but not yet executed for GCN.
-* **CUDA degree-skew sensitivity** (§2.5) is measured but not yet mitigated by an alternative work mapping; this remains an open item for `F-CUDA-ADDITIONAL`.
+* **No public-dataset GCN benchmark:** this sweep uses only the synthetic skewed-degree generator described in §2.1; a public dataset (e.g. `ogbn-arxiv`, Cora) run analogous to the GraphSAGE one in `doc/GraphSAGE.md §2.1` can also be implemented for GCN.

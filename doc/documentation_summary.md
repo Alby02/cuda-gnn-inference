@@ -401,7 +401,7 @@ $ /home/cheng/cuda-gnn-inference/builddir/gnn --backend parallel --graph /home/c
 ## 5. Known Limitations
 
 * **Out-of-Core Processing:** The current CSC loader and CUDA workspace allocate the entire graph topology and embedding tables in contiguous host and device memory. Input graphs exceeding GPU VRAM capacity cannot be partitioned dynamically across streaming batches, causing out-of-memory faults.
-* **GCN — single hardware environment:** unlike the GraphSAGE evaluation (cross-checked on a second workstation with a GTX 1660 Ti and 12 CPU threads), the GCN sweep was run only on the 2-vCPU / Tesla T4 Colab environment; OpenMP scaling beyond 2–4 threads and the width-128 CPU anomaly have not yet been re-verified on higher-core-count hardware.
+* **GCN — single hardware environment:** unlike the GraphSAGE evaluation (cross-checked on a second workstation with a GTX 1660 Ti and 12 CPU threads), the GCN sweep was run only on the 2-vCPU / Tesla T4 Colab environment; OpenMP scaling beyond 2–4 threads and the width-128 CPU anomaly have not yet been re-verified on higher-core-count hardware due to environment settings (`s296248`).
 * **GCN — no public-dataset benchmark:** the GCN sweep uses only the synthetic skewed-degree generator (`scripts/run_experiments.py`); a public-dataset run (e.g. `ogbn-arxiv`, Cora), this wasn't provided by the decided architecture (`s360540`)
 * **CUDA degree-skew sensitivity:** measured (§2.1.1) but not mitigated by an alternative work mapping; this remains an open item for `F-CUDA-ADDITIONAL`.
 

@@ -372,9 +372,38 @@ $ /home/cheng/cuda-gnn-inference/builddir/gnn --backend parallel --graph /home/c
 ```
 
 ---
+## 4. Conclusion and Selection Guide
 
-## 4. Known Limitations 
-Out-of-Core Processing: The current CSC loader and CUDA workspace allocate the entire graph topology and embedding tables in contiguous host and device memory. Input graphs exceeding GPU VRAM capacity cannot be partitioned dynamically across streaming batches, causing out-of-memory faults.
+### GCN
+* **GPU acceleration is strong and consistent for GCN**, ranging from 71x (1K nodes) up to 185x (10K nodes) speedup over the sequential baseline on uniform-degree graphs — higher than the corresponding GraphSAGE speedups, because GCN's per-edge aggregation work is simpler (one multiply-add per incoming edge, no dynamic sampling/branching).
+* **Degree skew is the dominant risk factor for the GCN CUDA mapping**: speedup falls from 71x to 13x as skew increases from 0 to 2 at fixed graph size, purely from per-thread load imbalance on hub destinations. Any future CUDA work-mapping change for GCN should target this case first (e.g. splitting very high-degree columns across multiple threads/blocks).
+* **OpenMP scaling for GCN is capped by the 2-vCPU Colab environment** used for its sweep; the destination-owned mapping itself shows no signs of contention (no atomics, no locks), so higher core counts should scale further — this remains to be measured on a machine with more cores.
+* **Native vs. PyG for GCN:** the native engine is faster than PyG in every case except the CPU-only, wide-feature (w=128) configuration, where PyG's BLAS-backed GEMM currently outperforms the native CPU dense multiply; the CUDA path is unaffected and remains 13x–255x faster than PyG-GPU depending on width.
+
+### GraphSAGE
+* **GPU Acceleration Threshold Effect:**
+  * **Small Graph Scenarios (Nodes ≤ 3K):** Unconditional CUDA usage leads to performance degradation (speedups of only **0.10x to 1.15x**). Kernel launch latencies and PCIe data transfers dominate total runtime.
+  * **Large Graph Scenarios (Nodes ≥ 80K):** GPU demonstrates overwhelming advantages. Massive neighbor aggregation fully saturates compute units, achieving **10.97x to 60.16x** speedups with peak throughput approaching 1,000,000 nodes/s.
+* **CPU Multi-Threading Scalability:** negligible gains on small graphs (0.84x–1.01x); strong scalability on large graphs (1.41x–1.67x at 2 threads, 6.81x–8.86x at 12 threads).
+* **`WideHidden-2L` Anomaly:** wide intermediate projection matrices exceed CPU L1/L2 cache capacity (worst CPU latency, 8507.83 ms), while mapping perfectly to CUDA cores (117.23 ms, 60.16x speedup — the maximum recorded).
+
+### Cross-model production guidance
+
+| Use Case / Graph Scale | Recommended Backend | Engineering Guidance |
+| :--- | :--- | :--- |
+| **Small-scale / Real-time subgraph extraction** (Nodes < 5K) | `sequential` / `parallel` | Execute directly on CPU to bypass host-to-device data transfer penalties. |
+| **Full-graph inference / Offline batching** (Nodes > 50K) | `cuda` | Prioritize GPU acceleration; memory footprint remains compact while delivering large speedups for both GCN and GraphSAGE. |
+| **CPU-only environments** | `parallel` | Enable multi-threading on larger graphs or when feature dimensions ≥ 128 to achieve a throughput uplift. |
+| **Highly skewed-degree graphs (GCN, CUDA)** | `parallel` preferred, or a future edge-balanced CUDA mapping | The static destination-owned OpenMP mapping degrades far less under skew (1.31x–1.53x) than the current CUDA mapping (71x→13x). |
+
+---
+
+## 5. Known Limitations
+
+* **Out-of-Core Processing:** The current CSC loader and CUDA workspace allocate the entire graph topology and embedding tables in contiguous host and device memory. Input graphs exceeding GPU VRAM capacity cannot be partitioned dynamically across streaming batches, causing out-of-memory faults.
+* **GCN — single hardware environment:** unlike the GraphSAGE evaluation (cross-checked on a second workstation with a GTX 1660 Ti and 12 CPU threads), the GCN sweep was run only on the 2-vCPU / Tesla T4 Colab environment; OpenMP scaling beyond 2–4 threads and the width-128 CPU anomaly have not yet been re-verified on higher-core-count hardware.
+* **GCN — no public-dataset benchmark:** the GCN sweep uses only the synthetic skewed-degree generator (`scripts/run_experiments.py`); a public-dataset run (e.g. `ogbn-arxiv`, Cora), this wasn't provided by the decided architecture (`s360540`)
+* **CUDA degree-skew sensitivity:** measured (§2.1.1) but not mitigated by an alternative work mapping; this remains an open item for `F-CUDA-ADDITIONAL`.
 
 ---
 

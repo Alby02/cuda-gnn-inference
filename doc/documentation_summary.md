@@ -414,4 +414,4 @@ $ /home/cheng/cuda-gnn-inference/builddir/gnn --backend parallel --graph /home/c
 *  Benjamin Rhoads, Abigail Hogue, Lars Kotthoff, Samrat Choudhury (2025) *Structure-Property Linkage in Alloys Using Graph Neural Network and Explainable Artificial Intelligence*, Materials Basel
 *  Yuchen Zhou, Hongtao Huo, Zhiwen Hou, Fanliang Bu (2023) *A deep graph convolutional neural network architecture for graph classification*, PLos One
 *   Open Graph Benchmark: [https://ogb.stanford.edu](https://ogb.stanford.edu)
-*   Project internal specs: `doc/architecture.md`, `doc/semantics.md`, `doc/knowledge.md`, `doc/requirements.md`.
+*   Project internal specs: `doc/architecture.md`, `doc/semantics.md`, `doc/knowledge.md`, `doc/requirements.md`, `doc/GCN.md`, `doc/GraphSAGE.md`.

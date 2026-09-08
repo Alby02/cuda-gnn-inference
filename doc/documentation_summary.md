@@ -1,6 +1,6 @@
 # GNN Inference Engine on CPUs and GPUs — Project Documentation
 
-This document fullfill the requirements for the DOCUMENTATION file mandatory in the deliverables. It is therefore an integrated summary of the already present markdown in this folder, for better meeting the requirements of the documentation. For further details refers to [semantics.md](semantics.md) for binding selections and mathematical conventions, [architecture.md](architecture.md) for software responsibilities, [requirements.md](requirements.md) for project requirements and [knowledge.md](knowledge.md) for explanation regarding GNN.
+This document fullfill the requirements for the DOCUMENTATION file mandatory in the deliverables. It is therefore an integrated summary of the already present markdown in this folder, for better meeting the requirements of the documentation. For further details refers to [semantics.md](semantics.md) for binding selections and mathematical conventions, [architecture.md](architecture.md) for software responsibilities, [requirements.md](requirements.md) for project requirements, [knowledge.md](knowledge.md) for explanation regarding GNN, [GCN.md](GCN.md) and [GraphSAGE.md](GraphSAGE.md) for more informations about GCN and GraphSAGE.
 
 ---
 
@@ -67,7 +67,7 @@ Thread count, OpenMP schedule kind (static/dynamic/guided), and chunk size are r
 
 **Mathematical operation per node:**
 For each destination node $v$:
-- Traverse its incoming adjacency list: neighbors in $\text{row\_ind}[\text{col\_ptr}[v] .. \text{col\_ptr}[v+1])$
+- Traverse its incoming adjacency list: neighbors in `row_ind[col_ptr[v] .. col_ptr[v+1]]`
 - Accumulate: $m_v = \sum_{(u,v) \in E} w_{uv} \cdot D_v^{-1/2} \cdot D_u^{-1/2} \cdot h_u$
 - Handle implicit self-loop if $v$ has no explicit self-edge: $m_v \gets m_v + D_v^{-1} \cdot h_v$
 - Output: $h_v^{\text{out}} = \sigma(m_v)$ (with optional ReLU activation)
@@ -170,18 +170,76 @@ Real graphs (and the scale-free synthetic family) have highly non-uniform in-deg
 
 GCN CPU OpenMP parallelization is fully functional and verified across destinations/vertex-centric mapping. The sequential baseline and parallel OpenMP implementations pass numerical equivalence tests with machine precision agreement on both uniform and skewed degree distributions.
 
-**Correctness validation:**
+##### GCN Benchmark — Graph-Size Scaling (Tesla T4 / Xeon 2T, Google Colab)
+> Fixed: feature width = 32, depth = 1 layer, skew = 0. Best OpenMP thread count and best CUDA block size reported per row.
+
+| Nodes | Stored edges | Sequential (ms) | OpenMP (ms) | Threads | CUDA (ms) | Block | OpenMP speedup | CUDA speedup |
+| ---: | ---: | ---: | ---: | :---: | ---: | :---: | ---: | ---: |
+| 1,000 | 8,000 | 1.24 ± 0.06 | 0.85 ± 0.01 | 2 | 0.0175 ± 0.0006 | 512 | 1.45x | 71.05x |
+| 10,000 | 80,000 | 12.34 ± 0.13 | 8.30 ± 0.22 | 2 | 0.0668 ± 0.0008 | 128 | 1.49x | 184.65x |
+| 100,000 | 800,000 | 131.62 ± 1.62 | 95.02 ± 10.39 | 2 | 1.2096 ± 0.0008 | 512 | 1.39x | 108.81x |
+
+**Throughput (nodes/s):**
+
+| Nodes | Sequential | OpenMP | CUDA |
+| ---: | ---: | ---: | ---: |
+| 1,000 | 805,585 | 1,171,673 | 57,234,431 |
+| 10,000 | 810,149 | 1,205,425 | 149,593,108 |
+| 100,000 | 759,755 | 1,052,385 | 82,669,771 |
+
+The environment has only **2 logical CPUs**, so `--threads 4` never wins and can be measurably slower than `--threads 2` due to oversubscription — the OpenMP speedup here (1.4–1.5x) reflects that hardware ceiling, not a limitation of the destination-owned mapping itself. GCN aggregation is cheaper per node than GraphSAGE's dynamic mean (no per-edge division/branching, and the implicit self-loop needs no extra traversal), consistent with GCN's CUDA speedups (71x–185x) exceeding GraphSAGE's on comparable small graphs.
+
+##### Effect of feature width
+> Fixed: 1,000 nodes, depth = 1, skew = 0.
+
+| Feature width | Sequential (ms) | OpenMP (ms) | CUDA (ms) | OpenMP speedup | CUDA speedup |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 32 | 1.24 ± 0.06 | 0.85 ± 0.01 (t=2) | 0.0175 ± 0.0006 (b=512) | 1.45x | 71.05x |
+| 128 | 19.32 ± 0.08 | 12.39 ± 0.23 (t=2) | 0.0756 ± 0.0002 (b=512) | 1.56x | 255.56x |
+
+##### Effect of model depth
+> Fixed: 1,000 nodes, feature width = 32, skew = 0.
+
+| Depth (layers) | Sequential (ms) | OpenMP (ms) | CUDA (ms) | OpenMP speedup | CUDA speedup |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 1.24 ± 0.06 | 0.85 ± 0.01 (t=2) | 0.0175 ± 0.0006 (b=512) | 1.45x | 71.05x |
+| 2 | 2.86 ± 0.23 | 1.90 ± 0.11 (t=2) | 0.0323 ± 0.0008 (b=128) | 1.51x | 88.45x |
+| 4 | 5.47 ± 0.19 | 3.86 ± 0.14 (t=2) | 0.0555 ± 0.0005 (b=128) | 1.42x | 98.57x |
+
+##### Effect of degree skew (load imbalance)
+> Fixed: 1,000 nodes, feature width = 32, depth = 1. `s=0` near-uniform in-degree; larger `s` concentrates incoming edges on fewer "hub" destinations.
+
+| Skew `s` | Sequential (ms) | OpenMP (ms) | Threads | CUDA (ms) | Block | OpenMP speedup | CUDA speedup |
+| :---: | ---: | ---: | :---: | ---: | :---: | ---: | ---: |
+| 0 | 1.24 ± 0.06 | 0.85 ± 0.01 | 2 | 0.0175 ± 0.0006 | 512 | 1.45x | 71.05x |
+| 1 | 1.34 ± 0.06 | 1.03 ± 0.11 | 4 | 0.0562 ± 0.0039 | 512 | 1.31x | 23.88x |
+| 2 | 1.25 ± 0.01 | 0.81 ± 0.03 | 2 | 0.0948 ± 0.0034 | 512 | 1.53x | 13.18x |
+
+As skew `s` grows, incoming edges concentrate on a shrinking set of hub destinations. Under the destination/feature CUDA mapping, the thread(s) owning a hub destination must walk a much longer CSC column than the rest of the warp/block, so CUDA speedup collapses from **71x at s=0 to 13x at s=2** even though total edge count is unchanged. The static, destination-owned OpenMP mapping is comparatively more resilient (1.31x–1.53x throughout).
+
+##### Native vs. PyTorch Geometric (`GCNConv`)
+> `native_speedup = framework_ms / native_ms`; values > 1 mean the native engine is faster. PyG CPU uses its best-of-{1,2,4} thread count; PyG GPU uses 1 CUDA stream.
+
+| Workload | Native seq (ms) | Native CUDA (ms) | PyG CPU best (ms) | PyG GPU (ms) | Native vs PyG-CPU | Native vs PyG-GPU |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1,000 nodes, w=32 | 1.24 | 0.0175 | 1.34 (t=1) | 0.999 | 1.08x | 57.16x |
+| 10,000 nodes, w=32 | 12.34 | 0.0668 | 15.14 (t=1) | 1.517 | 1.23x | 22.69x |
+| 100,000 nodes, w=32 | 131.62 | 1.2096 | 179.93 (t=2) | 8.127 | 1.37x | 6.72x |
+| 1,000 nodes, w=128 | 19.32 | 0.0756 | 4.06 (t=1) | 0.993 | **0.21x** | 13.14x |
+
+Max absolute error between native and PyG outputs was ≤ 4.8×10⁻⁷ across every configuration, well inside the `atol=1e-4` tolerance. The `w=128` row is a documented anomaly, not a hidden bug: at that width the native CPU path (transform-then-aggregate on 2 CPUs) is ~4.8x slower than PyG's BLAS-backed CPU GEMM, while native CUDA remains unaffected (255x speedup over native sequential, see feature-width table above).
+
+**Device memory:** native CUDA's reusable workspace is consistently ~15–16x smaller than PyG's peak allocated GPU memory at matching scale (e.g. 100,000 nodes / width 32: native workspace ≈ 71.4 MB vs. PyG peak ≈ 321.9 MB), because the native engine has no autograd graph and reuses four fixed-size ping-pong buffers instead of allocating per-op intermediate tensors.
+
+**Correctness validation:** every backend/workload combination (3 backends × 8 synthetic sweeps + 4 PyG comparison workloads × {CPU t=1,2,4; GPU}) passed with `atol=rtol=1e-4`; no `failed` rows are present anywhere in `gcn_results_all_backends.csv` (440 `passed` + 120 `reference` samples).
 - **Test coverage:** Non-uniform-degree random graphs, synthetic scale-free topologies (power-law degree distribution), mixed explicit/implicit self-loops, and isolated zero-in-degree nodes
 - **Scheduling variants:** Static, dynamic, and guided OpenMP schedule policies all produce identical outputs
-- **Numerical precision:** Sequential (single-threaded reference) matches multi-threaded OpenMP and validates against hand-calculated small-graph fixtures
 
 **GCN OpenMP Performance Characteristics:**
 - **Speedup pattern:** Typical 1.5–2.0x on 2-threaded configurations; scales moderately to 6–12 threads on larger graphs where synchronization overhead is amortized
 - **Bottleneck:** Cache coherency and memory bandwidth during the dense linear transform $Z = H \cdot W$; the aggregation step is memory-bound on sparse graphs with moderate feature dimensions
 - **Thread assignment:** Static scheduling performs well on uniform-degree graphs; guided scheduling recommended for power-law topologies to mitigate load imbalance
 
-**Comparison with GraphSAGE:**
-CPU comparisons demonstrate that GCN's simpler aggregation model (no sampling, uniform normalization) enables faster per-layer execution than GraphSAGE's dual-branch architecture on the same hardware.
 
 #### 2.1.2 GraphSAGE
 

@@ -377,7 +377,7 @@ $ /home/cheng/cuda-gnn-inference/builddir/gnn --backend parallel --graph /home/c
 ### GCN
 * **GPU acceleration is strong and consistent for GCN**, ranging from 71x (1K nodes) up to 185x (10K nodes) speedup over the sequential baseline on uniform-degree graphs — higher than the corresponding GraphSAGE speedups, because GCN's per-edge aggregation work is simpler (one multiply-add per incoming edge, no dynamic sampling/branching).
 * **Degree skew is the dominant risk factor for the GCN CUDA mapping**: speedup falls from 71x to 13x as skew increases from 0 to 2 at fixed graph size, purely from per-thread load imbalance on hub destinations. Any future CUDA work-mapping change for GCN should target this case first (e.g. splitting very high-degree columns across multiple threads/blocks).
-* **OpenMP scaling for GCN is capped by the 2-vCPU Colab environment** used for its sweep; the destination-owned mapping itself shows no signs of contention (no atomics, no locks), so higher core counts should scale further — this remains to be measured on a machine with more cores.
+* **OpenMP scaling for GCN is capped by the 2-vCPU Colab environment** used for its sweep; the destination-owned mapping itself shows no signs of contention (no atomics, no locks), so higher core counts should scale further.
 * **Native vs. PyG for GCN:** the native engine is faster than PyG in every case except the CPU-only, wide-feature (w=128) configuration, where PyG's BLAS-backed GEMM currently outperforms the native CPU dense multiply; the CUDA path is unaffected and remains 13x–255x faster than PyG-GPU depending on width.
 
 ### GraphSAGE

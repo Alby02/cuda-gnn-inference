@@ -270,8 +270,8 @@ This feature is required only if an additional CUDA work mapping is selected in 
 | T-DEL-01 | Document supported host/CUDA environments and clean Meson/Ninja build commands. | A clean checkout builds sequential, OpenMP, CUDA, tests, and runner targets in each claimed environment. | Completed |
 | T-DEL-02 | Document CLI options, input file schemas, dataset conversion, and example GCN/GraphSAGE commands. | A reader can reproduce one verified run of each required model type. | Completed |
 | T-DEL-03 | Produce tables and plots for all required comparisons with methodology and negative/neutral-result analysis. | Every plotted value traces to machine-readable records and a saved configuration. | Completed |
-| T-DEL-04 | Write the technical report covering semantics, architecture, work mappings, memory behavior, skewed degrees, correctness, limitations, and the rationale for the number and choice of CPU/CUDA implementations. | The report addresses every item required by `project.md` and `requirements.md`. | In progress |
-| T-DEL-05 | Prepare the presentation and a concise demonstration path. | The material fits the assigned presentation time and reproduces representative native and framework results. | In progress |
+| T-DEL-04 | Write the technical report covering semantics, architecture, work mappings, memory behavior, skewed degrees, correctness, limitations, and the rationale for the number and choice of CPU/CUDA implementations. | The report addresses every item required by `project.md` and `requirements.md`. | Completed |
+| T-DEL-05 | Prepare the presentation and a concise demonstration path. | The material fits the assigned presentation time and reproduces representative native and framework results. | Completed |
 
 ## 21. Optional extensions
 

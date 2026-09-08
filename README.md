@@ -303,8 +303,8 @@ extensions not selected in the baseline project profile (`semantics.md`).
 | T-BENCH-03–T-BENCH-06 (CUDA/GraphSAGE) | CUDA configurations, memory, and GraphSAGE benchmark results | `s296248` | Completed |
 | T-DEL-01–T-DEL-02 | Build, CLI, bundle, and run documentation | `s360540` | Completed |
 | T-DEL-03 | Comparison plots and visualization scripts | `s362415`, `s296248` | Completed |
-| T-DEL-04 | Technical report (architecture, evaluation, analysis) | All members | Completed |
-| T-DEL-05 | Presentation and live demonstration path | All members | Completed |
+| T-DEL-04 | Technical report (architecture, evaluation, analysis) | all members (`s362415`) | Completed |
+| T-DEL-05 | Presentation and live demonstration path | all members (`s362415`) | Completed |
 
 Detailed acceptance criteria for every task are in [doc/features.md](doc/features.md#61-three-person-delivery-split).
 

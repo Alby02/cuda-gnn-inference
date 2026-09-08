@@ -49,10 +49,10 @@ Model training and weight updates, automatic differentiation and backpropagation
 | M1 — sequential reference | One-layer and multi-layer GCN and GraphSAGE models load, execute sequentially, and pass hand-calculated fixtures. | Completed |
 | M2 — multi-core CPU | Both selected model types pass the selected complete OpenMP implementation and its strategy rationale is documented. | Completed |
 | M3 — CUDA baseline | Both selected model types run device-resident through the selected complete CUDA implementation and match their sequential baselines. | Completed |
-| M4 — CUDA experiments | The applicable shared-memory comparison is reproducible; any additional work mapping is verified and documented. | In progress |
+| M4 — CUDA experiments | The applicable shared-memory comparison is reproducible; any additional work mapping is verified and documented. | Completed |
 | M5 — datasets and framework | Synthetic/public workloads and equivalent external-framework GCN/GraphSAGE runs pass semantic checks. | Completed |
 | M6 — evaluation | All required timing, throughput, memory, scalability, strategy, storage, and framework comparisons are exported. | Completed |
-| M7 — delivery | Build/run documentation, technical report, reproducibility artifacts, and presentation are complete. | In progress |
+| M7 — delivery | Build/run documentation, technical report, reproducibility artifacts, and presentation are complete. | Completed |
 
 ## 5. Dependency flow
 
@@ -91,11 +91,11 @@ flowchart LR
 | F-CUDA-CORE | CUDA ownership, transfers, launch/error handling, and device workspaces. | Completed |
 | F-CUDA-SELECTED | Device-resident destination/feature CUDA execution for GCN and GraphSAGE. | Completed |
 | F-CUDA-ADDITIONAL | Conditional additional CUDA mapping when added to `semantics.md`. | Optional — unselected in profile |
-| F-EXPERIMENTS | Applicable shared-memory and sparse/dense studies. | In progress |
+| F-EXPERIMENTS | Applicable shared-memory and sparse/dense studies. | Completed |
 | F-DATA | Reproducible synthetic graphs and at least one public benchmark. | Completed |
 | F-FRAMEWORK | Equivalent GCN and GraphSAGE comparison in an established framework. | Completed |
 | F-BENCH | Repeatable timing, throughput, memory, scaling, and CSV orchestration. | Completed |
-| F-DELIVERY | Build/run guide, format guide, report artifacts, and slides. | In progress |
+| F-DELIVERY | Build/run guide, format guide, report artifacts, and slides. | Completed |
 
 ### 6.1 Three-person delivery split
 

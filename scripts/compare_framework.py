@@ -91,7 +91,13 @@ def main(argv=None):
             record = rows[0]
             model, backend = record['model_path'], record['backend']
             embeddings = native_dir / f'{native["name"]}.bin_matrix'
-            if backend == 'sequential':
+            # Prefer the sequential output as the native reference when it was
+            # requested.  If a caller intentionally benchmarks only parallel
+            # and/or CUDA (for example for a million-node workload), retain the
+            # first native output so the independent PyG implementation can
+            # still validate it.  Previously this unconditionally indexed a
+            # missing sequential reference and raised KeyError.
+            if backend == 'sequential' or model not in references:
                 references[model] = embeddings
             if backend not in args.backend:
                 continue

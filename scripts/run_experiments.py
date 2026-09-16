@@ -274,6 +274,26 @@ def main():
     parser.add_argument('--atol', type=float, default=1e-4)
     parser.add_argument('--rtol', type=float, default=1e-4)
     args = parser.parse_args()
+    if any(value <= 0 for value in args.nodes):
+        parser.error('--nodes values must be positive')
+    if any(value <= 0 for value in args.widths):
+        parser.error('--widths values must be positive')
+    if any(value <= 0 for value in args.depths):
+        parser.error('--depths values must be positive')
+    if any(value < 0 for value in args.skews):
+        parser.error('--skews values must be non-negative')
+    if args.degree < 0:
+        parser.error('--degree must be non-negative')
+    if args.real_hidden <= 0:
+        parser.error('--real-hidden must be positive')
+    if any(value <= 0 for value in args.threads):
+        parser.error('--threads values must be positive')
+    if any(value <= 0 for value in args.block_size):
+        parser.error('--block-size values must be positive')
+    if args.atol < 0 or args.rtol < 0:
+        parser.error('--atol and --rtol must be non-negative')
+    if args.warmups < 0 or args.repetitions <= 0 or args.repeat_checks < 0:
+        parser.error('--warmups/--repeat-checks must be non-negative and --repetitions positive')
     if args.backend is None:
         help_text = subprocess.run([str(Path(args.native).resolve()), '--help'], capture_output=True, text=True).stdout
         modes_line = [l for l in help_text.splitlines() if l.startswith('Modes:') or 'Available modes:' in l]

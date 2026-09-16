@@ -63,6 +63,13 @@ def generate_synthetic_graph(
 
     ## generation of graph topology and feature nodes matrix and export to dense matrix and graph csc format
 
+    if num_nodes <= 0:
+        raise ValueError("num_nodes must be positive")
+    if feature_dim <= 0:
+        raise ValueError("feature_dim must be positive")
+    if is_directed and graph_type != "erdos_renyi":
+        raise ValueError("directed generation is supported only for erdos_renyi")
+
     nk, np, _ = _load_dependencies()
 
 
@@ -75,10 +82,14 @@ def generate_synthetic_graph(
 
     if graph_type == "erdos_renyi": # ERDOS RENYI GENERATOR
         p = kwargs.get("p", 0.001) #getting the probability param
+        if not 0.0 <= p <= 1.0:
+            raise ValueError("p must be between 0 and 1")
         G = nk.generators.ErdosRenyiGenerator(num_nodes, p, directed=is_directed, selfLoops=False).generate()
 
     elif graph_type == "barabasi_albert": #BARABASI ALBERT GENERATOR
         m = kwargs.get("m", 5)
+        if not 1 <= m < num_nodes:
+            raise ValueError("m must satisfy 1 <= m < num_nodes")
         effective_directed = False #undirected
         G = nk.generators.BarabasiAlbertGenerator(k=m, nMax=num_nodes, n0=0).generate()
         # params: k = number of edges created towards existing nodes, nMax = total number of nodes to reach,
@@ -88,6 +99,10 @@ def generate_synthetic_graph(
     elif graph_type == "watts_strogatz": #WATTS STROGATZ GENERATOR
         k = kwargs.get("k", 6)
         p = kwargs.get("p", 0.1)
+        if k <= 0 or k >= num_nodes or k % 2:
+            raise ValueError("k must be positive, even, and smaller than num_nodes")
+        if not 0.0 <= p <= 1.0:
+            raise ValueError("p must be between 0 and 1")
         effective_directed = False #intrinsecally undirected
         G = nk.generators.WattsStrogatzGenerator(nNodes=num_nodes, nNeighbors=k // 2, p=p).generate()
         #params: k = total degree of each node in the initial setup, nNeighbors = only a part of the initial setup
@@ -136,7 +151,8 @@ if __name__ == "__main__": #launch from command line
     parser.add_argument("--nodes", type=int, default=10000, help="Total nodes")
     parser.add_argument("--feature_dim", type=int, default=128, help="Dimension of the features for each node")
     parser.add_argument("--out_prefix", type=str, default="./synth_data/graph", help="Output path prefix")
-    parser.add_argument("--directed", action="store_true", help="Creates an oriented graph")
+    parser.add_argument("--directed", action="store_true",
+                        help="Create a directed graph (Erdos-Renyi only)")
     parser.add_argument("--seed", type=int, default=42, help="Reproducibility seed")
 
     parser.add_argument("--m", type=int, default=5, help="Parameter m for Barabasi-Albert")
@@ -157,5 +173,5 @@ if __name__ == "__main__": #launch from command line
             p=args.p,
             k=args.k
         )
-    except RuntimeError as error:
+    except (RuntimeError, ValueError) as error:
         parser.exit(1, f"synthetic_generator: {error}\n")

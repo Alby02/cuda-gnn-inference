@@ -2,29 +2,32 @@
 
 ## 1. Windows (MSYS2/UCRT64) - CPU Only
 Since MSVC is not supported for this project, you must use MSYS2 on Windows, you will use scoop to manage the environment.
-1. Install [Scoop](https://scoop.sh/):
-2. Install MSYS2, python, meson, and ninja using Scoop:
+1. Install [Scoop](https://scoop.sh/).
+2. Install MSYS2, Python, Meson, Ninja, and uv using Scoop:
    ```powershell
-   scoop install msys2 python meson ninja
+   scoop install msys2 python meson ninja uv
    ```
-2. Open the **MSYS2 UCRT64** terminal, from powershell, run:
+3. Open the **MSYS2 UCRT64** terminal from PowerShell:
    ```powershell
    ucrt64
    ```
-3. Update your package database and core packages:
+4. Update your package database and core packages:
    ```bash
    pacman -Syu
    ```
-4. Install the required toolchain and dependencies:
+5. Install the required toolchain and dependencies:
    ```bash
    pacman -S mingw-w64-ucrt-x86_64-toolchain
    ```
-5. Set up and build the project:
+6. Set up the Python environment, then configure CUDA explicitly off and build:
    ```bash
-   meson setup builddir
+   uv sync
+   meson setup builddir -Dcuda=disabled
    meson compile -C builddir
+   ./builddir/gnn.exe --backend sequential
+   ./builddir/gnn.exe --backend parallel --threads 4
    ```
-6. Open the project in Visual Studio Code (or your preferred IDE) buy opening from the terminal:
+7. Open the project in Visual Studio Code (or your preferred IDE) from the terminal:
    ```bash
    code .
    ```
@@ -89,7 +92,7 @@ that a C++ compiler is discoverable on `PATH` (`g++ --version` or `clang++ --ver
 
 ---
 
-## 5. Google Colab Workflow Instructions (raccomandade for GPU Only)
+## 5. Google Colab Workflow Instructions (recommended for GPU runs)
 
 Since Google Colab offers limited GPU time (especially on free tiers), it is highly recommended to use a "connect and disconnect" workflow. This means you will only connect to a GPU instance when you actually need to compile and run the CUDA code, and disconnect immediately after to conserve your compute units.
 
@@ -115,25 +118,15 @@ This repository includes notebook files that you can use to run the code. There 
 3. Run the notebook cells right inside VSCode.
 4. **CRITICAL DISCONNECT STEP:** When you are done, you MUST open the command palette (`Ctrl+Shift+P`) and select `"Colab: Remove server"`. This explicitly disconnects the IPkernel and stops the server. Simply closing VSCode might leave the server running in the background and drain your compute units!
 
-### Set Up repository in Google Drive (Executed Once)
-
-1. Open the "InitialSetup" jupyterNotebook. (If you are using VSCode, connect to the remote Colab kernel)
-2. Click the "Run All" button to execute all cells. This will:
-    - Mount your Google Drive. (It requires an authorization step where you have to grant all permissions apparently, cherry-picking doesn't seem to work.)
-    - Clone the repository into your Drive for persistent storage.
-    - Set up the necessary the compiler and build environment for C++/CUDA.
-3. You can disconnect after this step, as the repository will remain in your Google Drive.
-
 ### Run the Project (Connect Only When Needed)
 
-1. Open the "Runner" jupyterNotebook. (If you are using VSCode, connect to the remote Colab kernel)
-2. Click the "Run All" button to execute all cells. This will:
-    - Mount your Google Drive.
-    - Navigate to the cloned repository.
-    - Pull the latest changes from GitHub.
-    - Compile the C++/CUDA code.
-    - Run the compiled program.
-3. **Disconnect:** When finished, go to `Runtime -> Disconnect and delete runtime` to stop consuming compute resources. Or if you are using VSCode, open the command palette (`Ctrl+Shift+P`) and select `"Colab: Remove server"` to explicitly disconnect the IPkernel and stop the server.
+1. Open [`Colab/Runner.ipynb`](../Colab/Runner.ipynb) and select a GPU runtime.
+2. Click **Run all**. The notebook mounts Drive for persistent results, clones the source into
+   `/content` for faster compilation, installs dependencies, builds all detected backends, and runs
+   correctness checks plus a small synthetic benchmark.
+3. The public-dataset and million-node sections are disabled by default. Enable them only when needed.
+4. **Disconnect:** When finished, use `Runtime -> Disconnect and delete runtime`. In VS Code, run
+   `Colab: Remove server` from the command palette.
 
 #### Known Issues
 - If you are using VSCode every time you disconnect from the kernel if you want to reconnect you will have close and reopen VSCode. This is a known issue with the Colab extension and is not related to this project.

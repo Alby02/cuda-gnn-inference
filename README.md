@@ -4,6 +4,7 @@
 [![CUDA](https://img.shields.io/badge/CUDA-Toolkit-green.svg)](https://developer.nvidia.com/cuda-toolkit)
 [![Build System](https://img.shields.io/badge/Build-Meson%20%2B%20Ninja-orange.svg)](https://mesonbuild.com/)
 [![License: EUPL 1.2](https://img.shields.io/badge/License-EUPL%201.2-blue.svg)](LICENSE)
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Alby02/cuda-gnn-inference/blob/main/Colab/Runner.ipynb)
 
 A high-performance, modular full-batch Graph Neural Network (GNN) inference engine implemented from scratch in **C++20**, **OpenMP**, and **CUDA**. It evaluates sequential CPU, multi-core CPU, and NVIDIA GPU execution for GCN and GraphSAGE workloads.
 
@@ -97,8 +98,8 @@ flowchart TD
 - **C++ Compiler**: GCC 11+ / Clang 14+ supporting C++20.
 - **Build System**: [Meson](https://mesonbuild.com/) (>= 0.60) and [Ninja](https://ninja-build.org/).
 - **OpenMP**: For multi-core CPU parallel execution.
-- **CUDA Toolkit** (Optional / Linux): For GPU targets (`nvcc`).
-- **Python** : Python 3.8+, recommended for helper scripts, possible used packages numpy, scipy, networkit, ogb (if converting OGB datasets)
+- **CUDA Toolkit** (optional, Linux/WSL/Colab): required only for the CUDA backend (`nvcc`).
+- **Python 3.10–3.13** and [uv](https://docs.astral.sh/uv/): required for dataset, validation, and benchmark scripts. Dependencies are declared in `pyproject.toml`.
 
 ### Quick Start
 
@@ -106,7 +107,7 @@ flowchart TD
 # 0. Create the Python tooling environment
 uv sync
 
-# 1. Configure build directory
+# 1. Configure the build directory (CUDA is auto-detected)
 meson setup builddir
 
 # 2. Compile targets
@@ -117,24 +118,34 @@ ninja -C builddir clang-format
 ninja -C builddir clang-tidy
 
 # 4. Run one of the modes exposed by the single CLI
-./builddir/gnn sequential
-./builddir/gnn parallel
-./builddir/gnn cuda
+./builddir/gnn --backend sequential
+./builddir/gnn --backend parallel
+./builddir/gnn --backend cuda
 ```
 
-To run the current demo with generated or downloaded data, pass the graph and node-feature
-files produced by the scripts:
+On MSYS2 UCRT64, CUDA is not supported; configure it explicitly off and use the `.exe` target:
 
 ```bash
-./builddir/gnn sequential synth_data/graph.bin_graph synth_data/graph_feats.bin_matrix
-./builddir/gnn parallel synth_data/graph.bin_graph synth_data/graph_feats.bin_matrix
-./builddir/gnn cuda synth_data/graph.bin_graph synth_data/graph_feats.bin_matrix
+meson setup builddir -Dcuda=disabled
+meson compile -C builddir
+./builddir/gnn.exe --backend sequential
+./builddir/gnn.exe --backend parallel --threads 4
 ```
 
-The loader validates the CSC topology and checks that the feature row count matches the number of
-nodes. Since trained model-parameter import is not implemented yet, this path creates a one-layer
-projection model matching the loaded feature width and prints a preview of its output. Node and edge
-features remain separate execution matrices rather than members of the graph object.
+To create a complete, small workload (graph, features, and model parameters) and run it:
+
+```bash
+uv run python scripts/make_example_inputs.py synth_data/example
+./builddir/gnn --backend sequential \
+  --graph synth_data/example/graph.bin_graph \
+  --features synth_data/example/features.bin_matrix \
+  --model synth_data/example/gcn.model
+```
+
+The loader validates the CSC topology, model matrices, and feature row count. The three input options
+must be supplied together. `scripts/synthetic_generator.py` is a lower-level graph/features generator;
+`scripts/run_experiments.py` creates complete seeded GCN and GraphSAGE workloads and runs the full
+native/PyTorch Geometric comparison pipeline.
 
 The `clang-format` and `clang-tidy` targets are generated automatically by
 Meson when the corresponding tools and project configuration files are
@@ -164,7 +175,7 @@ Data options — `--graph`, `--features`, and `--model` are **required together*
 
 - `--graph FILE` — binary graph topology in the repository's custom `.bin_graph` format
 - `--features FILE` — binary dense node-feature matrix in the custom `.bin_matrix` format
-- `--model FILE` — model description manifest (layer types, activations, weight/bias file paths); see `src/common/data/model_io.hpp` for the exact manifest format. Workload bundles (.bin_graph, .bin_matrix, .manifest) can be generated via `scripts/synthetic_generator.py`, converted from public datasets via `scripts/converter.py`, or created via `scripts/make_example_inputs.py`.
+- `--model FILE` — model description (layer types, activations, weight/bias paths); see `src/common/data/model_io.hpp` for the exact format. Complete example bundles can be created with `scripts/make_example_inputs.py`; controlled synthetic benchmark bundles are created by `scripts/run_experiments.py`.
 
 Other options:
 
@@ -209,6 +220,19 @@ export OMP_NUM_THREADS=16
 ```bash
 ./builddir/gnn --backend sequential --graph g.bin_graph --features f.bin_matrix --model m.manifest --output results.csv --embeddings out.bin_matrix --warmups 3 --repetitions 20
 ```
+
+- Run the tracked CPU/Python edge-case validation:
+
+```bash
+uv run python scripts/check_edge_cases.py --native ./builddir/gnn
+```
+
+### Google Colab
+
+Open [`Colab/Runner.ipynb`](Colab/Runner.ipynb), select a GPU runtime, and choose **Runtime → Run all**.
+The notebook clones and builds on Colab's local disk, writes persistent results to Google Drive, and
+runs a small synthetic correctness benchmark by default. Public-dataset and million-node runs are
+present but opt-in to avoid unexpectedly consuming a long GPU session.
 
 
 

@@ -158,11 +158,11 @@ The system shall produce:
 | --- | --- | --- |
 | VER-01 | Every required OpenMP/CUDA implementation and every variant claimed to be numerically equivalent shall be compared against the native sequential CPU baseline before its performance result is accepted as equivalent. | Run the automated correctness check for every required or equivalence-claimed implementation. |
 | VER-02 | Floating-point comparisons shall use documented absolute and relative tolerances. | Inspect the verifier configuration and test values near both tolerances. |
-| VER-03 | Correctness tests shall include a graph of the supported orientation with non-uniform degrees. | Execute and record the test. |
-| VER-04 | Correctness tests shall include an isolated or zero-in-degree node. | Execute and record the test. |
+| VER-03 | Correctness tests shall include a graph of the supported orientation with non-uniform degrees. | Execute the saved mixed-layer and weighted-undirected fixtures against the independent dense reference. |
+| VER-04 | Correctness tests shall include an isolated or zero-in-degree node. | Execute the empty-neighborhood fixtures on every compiled native backend and the external framework. |
 | VER-05 | Correctness tests shall cover one-layer and multi-layer models for every required GNN type. | Execute and record both depth cases for every selected type. |
 | VER-06 | A result that fails the default tolerance shall not be reported as a numerically equivalent core result. | Inspect benchmark classification and failure handling. |
-| VER-07 | The external-framework mapping for each required GNN type shall be compared with its native sequential baseline before framework performance results are accepted. | Compare external outputs for every selected type on saved fixtures/workloads. |
+| VER-07 | The external-framework mapping for each required GNN type shall be compared with its native sequential baseline before framework performance results are accepted. | Compare external outputs for every selected type on saved fixtures/workloads and retain a machine-readable verification report. |
 
 ## 7. Dataset requirements
 
@@ -171,7 +171,7 @@ The system shall produce:
 | ID | Requirement | Verification |
 | --- | --- | --- |
 | DATA-SYN-01 | The evaluation shall include at least one selected synthetic graph family: scale-free, random, or small-world. The other families are optional. | Generate and benchmark at least one configuration from the selected family. |
-| DATA-SYN-02 | Synthetic generation shall permit graph size and feature dimension to be varied. | Generate at least two sizes and two feature dimensions. |
+| DATA-SYN-02 | Synthetic generation shall permit graph size and feature dimension to be varied. | Generate at least two sizes and two feature dimensions; use one-variable-at-a-time configurations when attributing a scaling trend. |
 | DATA-SYN-03 | Synthetic graph generation shall be reproducible from documented parameters and a seed. | Generate the same graph twice and compare its topology. |
 | DATA-SYN-04 | Synthetic dataset configurations shall account for available CPU and GPU memory; omitted larger sizes shall be identified and justified in the report. | Compare the planned synthetic size range with the final experiments and documented memory limits. |
 
@@ -214,8 +214,8 @@ One implementation variant may satisfy more than one comparison requirement when
 | --- | --- | --- |
 | BEN-MET-01 | The benchmark shall measure end-to-end inference time using a documented boundary. Offline conversion and dataset download shall be excluded; file loading and backend setup shall be reported separately when they are not included. | Record the boundary and metric for every compared implementation. |
 | BEN-MET-02 | CUDA benchmarks shall measure kernel or device-execution time separately from end-to-end time. | Report both timing scopes. |
-| BEN-MET-03 | The benchmark shall report throughput in nodes/s, edges/s, or both. | Verify calculation from workload size and measured time. |
-| BEN-MET-04 | The benchmark shall report speedup relative to the matching GNN type's sequential CPU baseline. | Verify the speedup calculation for every selected type. |
+| BEN-MET-03 | The benchmark shall report throughput in nodes/s, edges/s, or both. | Verify calculation from workload size and measured time and expose the values in machine-readable results and plots. |
+| BEN-MET-04 | The benchmark shall report speedup relative to the matching GNN type's sequential CPU baseline. | Verify the speedup calculation for every selected type and identify the baseline directly in tables/plots. |
 | BEN-MET-05 | The OpenMP evaluation shall report scalability across multiple thread counts. | Include a thread-scaling table or plot. |
 | BEN-MET-06 | The benchmark shall report host and device peak memory usage using documented measurement methods. | Reproduce memory measurements for representative configurations. |
 
@@ -229,7 +229,7 @@ One implementation variant may satisfy more than one comparison requirement when
 | BEN-PROC-04 | A core backend comparison shall use the same GNN type, graph, feature dimensions, model depth, numerical precision, parameters, and per-type semantics. | Inspect saved benchmark configurations for every selected type. |
 | BEN-PROC-05 | Data conversion and dataset download time shall be excluded from inference time. | Inspect timing boundaries. |
 | BEN-PROC-06 | File loading, host-device transfer, setup, and inference boundaries shall be reported explicitly. | Review benchmark documentation and output. |
-| BEN-PROC-07 | Benchmark results shall be exportable in a machine-readable format such as CSV. | Run an experiment and parse the output file. |
+| BEN-PROC-07 | Benchmark results shall be exportable in a machine-readable format such as CSV. | Run an experiment, parse its CSV/JSON outputs, and regenerate its PNG/SVG plots without rerunning inference. |
 | BEN-PROC-08 | Exact graph sizes, feature dimensions, depths, thread/launch settings, and repetition counts shall be documented in the experiment plan. | Review the plan and final configuration records. |
 | BEN-PROC-09 | External-framework records shall include framework/dependency versions, device, dtype, execution mode, synchronization, preprocessing/caching policy, warm-up, repetitions, and timing/memory boundaries. | Inspect the metadata accompanying external results. |
 
@@ -280,7 +280,7 @@ The supported C++ compiler and CUDA toolkit versions shall be verified and recor
 | DEL-03 | Technical documentation describing graph representation, memory layout, the selected GNN semantics, architecture, CPU and GPU strategies, handling of skewed degree distributions, and the rationale for the number and type of implemented CPU/CUDA strategies. |
 | DEL-04 | Correctness tests and instructions for reproducing them. |
 | DEL-05 | Synthetic graph generators and public-dataset preparation/loading tools required by the evaluation. |
-| DEL-06 | A reproducible benchmark runner and machine-readable result files. |
+| DEL-06 | A reproducible benchmark runner, machine-readable result files, and regenerable comparison/scaling figures. |
 | DEL-07 | An experimental report containing the required GNN-type, native/external-framework, timing, throughput, memory, scalability, work-mapping, applicable shared-memory, and sparse/dense comparisons, with methodology and analysis. |
 | DEL-08 | Slides for a 20-minute oral presentation. |
 

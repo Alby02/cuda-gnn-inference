@@ -386,7 +386,7 @@ There is no full feature-matrix allocation, graph conversion, model reconstructi
 3. accumulate incoming messages normalized by inverse square root degrees;
 4. add an implicit self-loop contribution when an explicit self-loop is absent.
 
-The executor's linear matrix product (`rowByColumn`), branch addition (`add`), and bias/activation operations use direct loops. For GraphSAGE, sequential aggregation excludes self entries ($u == v$), computes the non-self weighted mean, sum, or max, and allows combining separate self and neighbor branches. The sequential execution provides the native numerical baseline against which parallel and GPU results are verified.
+The executor's linear matrix product (`rowByColumn`), branch addition (`add`), and bias/activation operations use direct loops. For GraphSAGE, sequential aggregation excludes self entries ($u == v$); the selected `MEAN` mode computes an unweighted arithmetic mean, while the optional sum/max modes retain their own aggregation rules. Separate self and neighbor branches are then combined. The sequential execution provides the native numerical baseline against which parallel and GPU results are verified.
 
 ### 9.2 Selected OpenMP destination-owned path
 

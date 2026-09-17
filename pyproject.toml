@@ -1,7 +1,7 @@
 [project]
 name = "cuda-gnn-inference-tools"
 version = "0.1.0"
-description = "Dataset preparation tools for the CUDA GNN inference project"
+description = "Dataset, validation, and benchmark tools for the CUDA GNN inference project"
 requires-python = ">=3.10,<3.14"
 dependencies = [
   "matplotlib>=3.7",

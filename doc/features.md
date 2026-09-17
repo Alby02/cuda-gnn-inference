@@ -133,7 +133,7 @@ F-OMP-ADDITIONAL and F-CUDA-ADDITIONAL remain stretch work. If time permits afte
 | T-CON-02 | Define owning row-major `float32` matrices and bounded non-owning host/device views. | Shape, offset, overflow, move, and lifetime tests pass without per-row heap allocations. | Completed |
 | T-CON-03 | Define `GCNLayer` and mean `GraphSageLayer` descriptors with dimensions, parameters, optional bias, and activation. | Valid one-layer and multi-layer descriptors are constructible and incompatible parameter shapes are rejected. | Completed |
 | T-CON-04 | Define a non-empty generic model and a type-safe layer-selection boundary. | Homogeneous GCN and GraphSAGE models validate; unsupported types and adjacent-dimension mismatches fail before inference. | Completed |
-| T-CON-05 | Implement shared semantic preparation for GCN degrees/self messages and GraphSAGE non-self neighbor-weight totals. | Prepared values match hand-calculated weighted, explicit-self, missing-self, and empty-neighbor fixtures. | Completed |
+| T-CON-05 | Implement shared semantic preparation for GCN weighted degrees/self messages and GraphSAGE non-self neighbor counts. | Prepared values match hand-calculated weighted-GCN, explicit-self, missing-self, and empty-neighbor fixtures. | Completed |
 | T-CON-06 | Define executor operation requirements and layer-specific `forward_layer` algorithms. | GCN and GraphSAGE operation order is expressed outside executor classes and unsupported executor capabilities are diagnosed before execution. | Completed |
 | T-CON-07 | Define reusable host and CUDA workspace contracts, including ping-pong features (`current`, `next`), `scratch`, `branch`, and layer scratch requirements. | Maximum required capacity is established before timed repetitions and buffer roles swap safely across layers. | Completed |
 | T-CON-08 | Define outer backend/strategy dispatch to concrete compositions (`InferenceRuntime`). | No backend switch, virtual dispatch, string lookup, or factory lookup occurs in a node/edge/feature loop. | Completed |
@@ -155,7 +155,7 @@ F-OMP-ADDITIONAL and F-CUDA-ADDITIONAL remain stretch work. If time permits afte
 | --- | --- | --- | :---: |
 | T-SEQ-01 | Implement direct single-threaded dense linear, bias, activation, and branch-combination operations. | Small matrix fixtures match hand-calculated results. | Completed |
 | T-SEQ-02 | Implement GCN normalized incoming aggregation with explicit-or-implicit self handling. | Weighted and unweighted fixtures match the equations in `semantics.md`. | Completed |
-| T-SEQ-03 | Implement GraphSAGE weighted non-self mean with a zero vector for an empty neighborhood. | Self-loop exclusion, weighted mean, and empty-neighbor fixtures pass. | Completed |
+| T-SEQ-03 | Implement GraphSAGE unweighted non-self mean with a zero vector for an empty neighborhood. | Self-loop exclusion, arithmetic mean, edge-weight independence, and empty-neighbor fixtures pass. | Completed |
 | T-SEQ-04 | Implement GCN and GraphSAGE `forward_layer` algorithms using the shared sequential executor operations. | One layer of each type matches its worked semantic example. | Completed |
 | T-SEQ-05 | Implement `InferenceRuntime` with layer iteration and ping-pong feature buffers. | One-layer and multi-layer GCN and GraphSAGE outputs are correct with differing feature dimensions. | Completed |
 | T-SEQ-06 | Remove repeated allocations and graph/model reconstruction from the steady-state forward pass. | Allocation instrumentation reports no full feature-matrix allocation during a timed repetition. | Completed |
@@ -165,9 +165,9 @@ F-OMP-ADDITIONAL and F-CUDA-ADDITIONAL remain stretch work. If time permits afte
 | Task | Work | Done when | Status |
 | --- | --- | --- | :---: |
 | T-VER-01 | Encode independent GCN fixtures for direction, normalization, explicit/missing self-loops, bias, activation, and multiple layers. | Expected values are hand-calculated or generated independently of the native implementation and all fixtures pass sequentially. | Completed |
-| T-VER-02 | Encode independent GraphSAGE fixtures for non-self weighted mean, empty neighborhoods, separate branches, bias, activation, and multiple layers. | Expected values are independent and all fixtures pass sequentially. | Completed |
+| T-VER-02 | Encode independent GraphSAGE fixtures for the non-self arithmetic mean, empty neighborhoods, separate branches, bias, activation, and multiple layers. | Expected values are independent and all fixtures pass every compiled native backend plus PyTorch Geometric. | Completed |
 | T-VER-03 | Implement shape-aware absolute/relative tolerance comparison with NaN/infinity handling. | Boundary-value tests for `atol`, `rtol`, shape mismatch, NaN, and infinity pass. | Completed |
-| T-VER-04 | Compare every required or equivalence-claimed OpenMP/CUDA result with the matching per-type sequential baseline. | An intentionally corrupted result is rejected and cannot be reported as equivalent. | Completed |
+| T-VER-04 | Compare every required or equivalence-claimed OpenMP/CUDA result with the matching per-type sequential baseline. | The edge-case matrix and experiment runner execute every requested backend; an intentionally corrupted result is rejected and cannot be reported as equivalent. | Completed |
 | T-VER-05 | Add malformed-input and unsupported-composition tests. | Invalid CSC, weights, dimensions, layer data, and strategy combinations fail deterministically with diagnostics. | Completed |
 | T-VER-06 | Compare external-framework GCN and GraphSAGE outputs with their native sequential baselines. | Framework performance records are accepted only after the associated semantic checks pass. | Completed |
 
@@ -176,7 +176,7 @@ F-OMP-ADDITIONAL and F-CUDA-ADDITIONAL remain stretch work. If time permits afte
 | Task | Work | Done when | Status |
 | --- | --- | --- | :---: |
 | T-OMPV-01 | Implement destination-parallel GCN aggregation over complete CSC columns. | Each destination row has one owner, needs no aggregation atomic, and matches sequential GCN. | Completed |
-| T-OMPV-02 | Implement destination-parallel GraphSAGE non-self mean using the same work-mapping family. | Weighted, self-loop, and empty-neighbor cases match sequential GraphSAGE. | Completed |
+| T-OMPV-02 | Implement destination-parallel GraphSAGE non-self arithmetic mean using the same work-mapping family. | Edge-weight-independence, self-loop, and empty-neighbor cases match sequential GraphSAGE. | Completed |
 | T-OMPV-03 | Parallelize compatible dense and elementwise operations without changing layer semantics using OpenMP and SIMD. | Complete multi-layer GCN and GraphSAGE models pass verification. | Completed |
 | T-OMPV-04 | Expose thread count and record static scheduling; schedule and chunk options are omitted by request. | Thread-count configurations can be reproduced with static scheduling. | Completed |
 | T-OMPV-05 | Keep intermediate matrices in reusable host workspaces. | No full feature-matrix allocation occurs between layers or timed repetitions. | Completed |
@@ -207,7 +207,7 @@ This feature is required only if an additional OpenMP mapping is selected in `se
 | Task | Work | Done when | Status |
 | --- | --- | --- | :---: |
 | T-CUDAV-01 | Implement destination/feature-mapped GCN aggregation over CSC with a single logical owner per output element. | GCN fixtures and multi-layer workloads pass without aggregation atomics. | Completed |
-| T-CUDAV-02 | Implement destination/feature-mapped GraphSAGE non-self weighted mean. | GraphSAGE fixtures and multi-layer workloads match the sequential baseline. | Completed |
+| T-CUDAV-02 | Implement destination/feature-mapped GraphSAGE non-self arithmetic mean. | Weighted-input fixtures, empty neighborhoods, and multi-layer workloads match the sequential baseline and PyTorch Geometric. | Completed |
 | T-CUDAV-03 | Implement required dense, branch-combination, bias, and activation CUDA operations. | Complete GCN and GraphSAGE paths remain device-resident and pass verification. | Completed |
 | T-CUDAV-04 | Make block/grid geometry configurable and record it with results. | At least two valid launch configurations can be reproduced. | Completed |
 
@@ -235,7 +235,7 @@ This feature is required only if an additional CUDA work mapping is selected in 
 | Task | Work | Done when | Status |
 | --- | --- | --- | :---: |
 | T-DATA-01 | Select and reproducibly generate at least one of the scale-free, Erdos-Renyi, or small-world graph families; additional families are optional. | Repeated generation of the selected family yields identical canonical topology and metadata. | Completed |
-| T-DATA-02 | Vary node count, feature dimension, and model depth over the required experiment ranges while accounting for CPU and GPU memory. | Saved configurations cover at least one order of magnitude in graph size and multiple feature/depth values; omitted larger sizes and their limiting resource are documented. | Completed |
+| T-DATA-02 | Vary node count, feature dimension, model depth, and degree skew over the required experiment ranges while accounting for CPU and GPU memory. | Saved one-variable-at-a-time configurations cover at least one order of magnitude in graph size and multiple feature/depth/skew values; omitted larger sizes and their limiting resource are documented. | Completed |
 | T-DATA-03 | Convert at least one public node-feature graph to the native input files. | Source, license/citation, transformations, orientation, self-loop handling, and feature conversion are documented. | Completed |
 | T-DATA-04 | Generate or import reproducible GCN and GraphSAGE parameters for every workload. | Native and framework runners consume numerically identical parameter values. | Completed |
 | T-DATA-05 | Record exact stored-entry and per-layer processed-message counts. | Throughput denominators can be reconstructed for GCN and GraphSAGE. | Completed |
@@ -257,11 +257,11 @@ This feature is required only if an additional CUDA work mapping is selected in 
 | --- | --- | --- | :---: |
 | T-BENCH-01 | Implement warm-up and repeated measurement with documented central tendency and variability. | Raw samples and summaries are emitted for every configuration. | Completed |
 | T-BENCH-02 | Separate load/setup, compute, transfer, and end-to-end boundaries. | CPU, CUDA, and framework records state exactly what each timing includes. | Completed |
-| T-BENCH-03 | Compute nodes/s, stored-edges/s or processed-messages/s, and speedup against the matching sequential model type. | Metric formulas reproduce the exported values. | Completed |
+| T-BENCH-03 | Compute nodes/s, stored-edges/s or processed-messages/s, and speedup against the matching sequential model type. | Metric formulas reproduce the exported values and the per-workload latency/throughput/speedup dashboard. | Completed |
 | T-BENCH-04 | Measure host and device peak memory with documented methods. | Representative native and framework configurations include reproducible peak-memory values. | Completed |
-| T-BENCH-05 | Sweep OpenMP thread counts and selected CUDA launch configurations. | Scaling tables/plots include exact thread and launch settings. | Completed |
-| T-BENCH-06 | Orchestrate required graph-size, feature-size, depth, degree-distribution, selected-implementation, applicable shared-memory, sparse/dense, and framework comparisons; compare additional mappings when present. | Every `BEN-COMP` requirement maps to at least one saved experiment set. | Completed |
-| T-BENCH-07 | Export commands, seeds, hardware/software metadata, verification outcome, and samples in machine-readable form. | A result row and its referenced configuration are sufficient to rerun the experiment. | Completed |
+| T-BENCH-05 | Sweep OpenMP thread counts and selected CUDA launch configurations. | Scaling tables/plots identify exact thread and launch settings with distinct series styles. | Completed |
+| T-BENCH-06 | Orchestrate required graph-size, feature-size, depth, degree-distribution, selected-implementation, applicable shared-memory, sparse/dense, and framework comparisons; compare additional mappings when present. | Every `BEN-COMP` requirement maps to at least one saved experiment set, and scaling plots are produced only for axes with multiple measured values. | Completed |
+| T-BENCH-07 | Export commands, seeds, hardware/software metadata, verification outcome, and samples in machine-readable form. | A result row and its referenced configuration are sufficient to rerun the experiment; plots can be regenerated from the saved CSV/JSON files alone. | Completed |
 
 ## 20. F-DELIVERY — documentation and presentation
 
@@ -269,7 +269,7 @@ This feature is required only if an additional CUDA work mapping is selected in 
 | --- | --- | --- | :---: |
 | T-DEL-01 | Document supported host/CUDA environments and clean Meson/Ninja build commands. | A clean checkout builds sequential, OpenMP, CUDA, tests, and runner targets in each claimed environment. | Completed |
 | T-DEL-02 | Document CLI options, input file schemas, dataset conversion, and example GCN/GraphSAGE commands. | A reader can reproduce one verified run of each required model type. | Completed |
-| T-DEL-03 | Produce tables and plots for all required comparisons with methodology and negative/neutral-result analysis. | Every plotted value traces to machine-readable records and a saved configuration. | Completed |
+| T-DEL-03 | Produce readable tables and plots for all required comparisons with methodology and negative/neutral-result analysis. | Every plotted value traces to machine-readable records and a saved configuration; PNG/SVG dashboards show latency, throughput, framework-relative speed, and numerical error, while separate multi-point figures show scaling. | Completed |
 | T-DEL-04 | Write the technical report covering semantics, architecture, work mappings, memory behavior, skewed degrees, correctness, limitations, and the rationale for the number and choice of CPU/CUDA implementations. | The report addresses every item required by `project.md` and `requirements.md`. | Completed |
 | T-DEL-05 | Prepare the presentation and a concise demonstration path. | The material fits the assigned presentation time and reproduces representative native and framework results. | Completed |
 

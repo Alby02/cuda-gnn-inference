@@ -193,49 +193,206 @@ def plot_results(root, workloads, samples, comparisons):
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
+    from matplotlib.ticker import LogLocator, NullFormatter
+
+    plt.rcParams.update({
+        'axes.grid': True,
+        'axes.spines.top': False,
+        'axes.spines.right': False,
+        'figure.facecolor': 'white',
+        'font.size': 10,
+        'grid.alpha': 0.22,
+        'legend.frameon': False,
+    })
+
     by_tag = {w['tag']: w for w in workloads}
-    # Per-sample CSV repeats mean/stddev: keep one measurement summary per configuration.
+
+    def model_name(row):
+        return row['model_types'].split(';')[0]
+
+    def series_label(row):
+        if row['runner'] == 'torch_geometric':
+            return ('PyG / CUDA' if row['backend'] == 'cuda'
+                    else f'PyG / CPU (t={row["threads"]})')
+        if row['backend'] == 'cuda':
+            return f'Native / CUDA (b={row["block_size"]})'
+        if row['backend'] == 'parallel':
+            return f'Native / OpenMP (t={row["threads"]})'
+        return 'Native / sequential'
+
+    def series_color(label):
+        if 'CUDA' in label and label.startswith('Native'):
+            return '#2a9d8f'
+        if 'CUDA' in label:
+            return '#e76f51'
+        if 'OpenMP' in label:
+            return '#457b9d'
+        if 'PyG / CPU' in label:
+            return '#f4a261'
+        return '#6c757d'
+
+    def series_style(label):
+        """Keep thread/block variants distinguishable in monochrome as well as colour."""
+        variants = ('(t=1)', '(t=2)', '(t=4)', '(t=8)', '(t=16)',
+                    '(b=128)', '(b=256)', '(b=512)')
+        markers = ('o', 's', '^', 'D', 'P', 'o', 's', '^')
+        marker = next((markers[index] for index, value in enumerate(variants) if value in label), 'o')
+        return {'marker': marker, 'linestyle': '--' if label.startswith('PyG') else '-'}
+
+    def series_order(label):
+        families = ('Native / sequential', 'Native / OpenMP', 'Native / CUDA',
+                    'PyG / CPU', 'PyG / CUDA')
+        return next((index for index, value in enumerate(families) if label.startswith(value)), 99), label
+
+    def clean_log_axis(axis):
+        axis.xaxis.set_major_locator(LogLocator(base=10, numticks=6))
+        axis.xaxis.set_minor_formatter(NullFormatter())
+
+    def save_figure(fig, stem):
+        for extension in ('png', 'svg'):
+            fig.savefig(plots / f'{stem}.{extension}', dpi=180, bbox_inches='tight')
+        plt.close(fig)
+
+    # Per-sample CSV repeats duplicate the same summary fields. Keep one record
+    # per workload/model/execution configuration for plotting.
     measurements = {}
     for row in samples:
-        kind = row['model_types'].split(';')[0]
-        label = f'{row["runner"]} {row["backend"]}'
-        label += f' block={row["block_size"]}' if row['backend'] == 'cuda' and row['runner'] != 'torch_geometric' else f' t={row["threads"]}'
-        measurements[(row['workload'], kind, label)] = row
+        measurements[(row['workload'], model_name(row), series_label(row))] = row
+
     plots = root / 'plots'
     plots.mkdir(exist_ok=True)
+    for old_plot in itertools.chain(plots.glob('*.png'), plots.glob('*.svg')):
+        old_plot.unlink()
+
+    # One readable dashboard per workload and model. This is useful even for a
+    # single workload point, unlike a fake scaling chart with four empty axes.
+    for workload in workloads:
+        tag = workload['tag']
+        for kind in sorted({key[1] for key in measurements if key[0] == tag}):
+            entries = sorted(
+                ((label, row) for (row_tag, model, label), row in measurements.items()
+                 if row_tag == tag and model == kind),
+                key=lambda item: series_order(item[0]),
+            )
+            if not entries:
+                continue
+            labels = [label for label, _ in entries]
+            colors = [series_color(label) for label in labels]
+            means = [float(row['mean_ms']) for _, row in entries]
+            deviations = [float(row['stddev_ms']) for _, row in entries]
+            throughputs = [float(workload['nodes']) * 1000.0 / value for value in means]
+
+            compared = [row for row in comparisons
+                        if row['workload'] == tag and model_name(row) == kind]
+            speedup_labels = []
+            speedups = []
+            errors = []
+            for row in compared:
+                label = ('Native / CUDA (b=' + row['block_size'] + ')'
+                         if row['native_backend'] == 'cuda'
+                         else 'Native / OpenMP (t=' + row['threads'] + ')'
+                         if row['native_backend'] == 'parallel'
+                         else 'Native / sequential')
+                speedup_labels.append(label)
+                speedups.append(float(row['native_speedup']))
+                errors.append(max(float(row['max_abs_error']), 1e-12))
+
+            fig, axes = plt.subplots(2, 2, figsize=(15, 10), constrained_layout=True)
+            positions = list(range(len(labels)))
+            axes[0, 0].barh(positions, means, xerr=deviations, color=colors, alpha=0.9,
+                            error_kw={'capsize': 3, 'elinewidth': 1})
+            axes[0, 0].set_yticks(positions, labels)
+            axes[0, 0].invert_yaxis()
+            axes[0, 0].set_xscale('log')
+            clean_log_axis(axes[0, 0])
+            axes[0, 0].set(title='Compute latency (lower is better)', xlabel='Mean milliseconds, log scale')
+
+            axes[0, 1].barh(positions, throughputs, color=colors, alpha=0.9)
+            axes[0, 1].set_yticks(positions, labels)
+            axes[0, 1].invert_yaxis()
+            axes[0, 1].set_xscale('log')
+            clean_log_axis(axes[0, 1])
+            axes[0, 1].set(title='Node throughput (higher is better)', xlabel='Nodes / second, log scale')
+
+            compared_positions = list(range(len(speedup_labels)))
+            compared_colors = [series_color(label) for label in speedup_labels]
+            axes[1, 0].barh(compared_positions, speedups, color=compared_colors, alpha=0.9)
+            axes[1, 0].set_yticks(compared_positions, speedup_labels)
+            axes[1, 0].invert_yaxis()
+            axes[1, 0].axvline(1.0, color='#222222', linestyle='--', linewidth=1)
+            axes[1, 0].set(title='Native speed relative to matching PyG device',
+                           xlabel='PyG time / native time (>1 means native is faster)')
+
+            axes[1, 1].barh(compared_positions, errors, color=compared_colors, alpha=0.9)
+            axes[1, 1].set_yticks(compared_positions, speedup_labels)
+            axes[1, 1].invert_yaxis()
+            axes[1, 1].set_xscale('log')
+            clean_log_axis(axes[1, 1])
+            axes[1, 1].axvline(float(compared[0]['atol']), color='#c1121f', linestyle='--',
+                               linewidth=1, label='absolute tolerance')
+            axes[1, 1].legend(loc='best')
+            axes[1, 1].set(title='Numerical agreement with PyG', xlabel='Maximum absolute error, log scale')
+
+            fig.suptitle(
+                f'{kind} — {tag}\n'
+                f'{workload["nodes"]:,} nodes · {workload["stored_edges"]:,} stored edges · '
+                f'width {workload["width"]} · depth {workload["depth"]} · skew {workload["skew"]:g}',
+                fontsize=15,
+            )
+            save_figure(fig, f'{tag}-{kind.lower()}-dashboard')
+
+    # Scaling plots are created only for axes with at least two actual values.
+    # Each axis gets its own figure so labels and legends remain legible.
     for kind in sorted({key[1] for key in measurements}):
-        fig, axes = plt.subplots(2, 2, figsize=(13, 9), constrained_layout=True)
-        for ax, dimension in zip(axes.flat, ('nodes', 'width', 'depth', 'skew')):
+        for dimension in ('nodes', 'width', 'depth', 'skew'):
+            eligible = [w for w in workloads if dimension in w['axes']]
+            if len({w[dimension] for w in eligible}) < 2:
+                continue
             groups = {}
+            sequential = {}
             for (tag, model, label), row in measurements.items():
                 workload = by_tag[tag]
-                if model == kind and dimension in workload['axes']:
-                    groups.setdefault(label, []).append((workload[dimension], float(row['mean_ms'] or 0), float(row['stddev_ms'] or 0)))
-            for label, values in sorted(groups.items()):
-                values.sort()
-                ax.errorbar([v[0] for v in values], [v[1] for v in values],
-                            yerr=[v[2] for v in values], marker='o', capsize=3, label=label)
-            ax.set(xlabel=dimension, ylabel='Compute mean (ms)', title=f'{kind}: vary {dimension}')
-            ax.set_yscale('log')
-            ax.grid(True, alpha=0.3)
-            if groups:
-                ax.legend(fontsize=7)
-        fig.suptitle('One variable at a time; error bars = population standard deviation')
-        for extension in ('png', 'svg'):
-            fig.savefig(plots / f'{kind.lower()}-scaling.{extension}', dpi=160)
-        plt.close(fig)
-    for workload in workloads:
-        rows = [r for r in comparisons if r['workload'] == workload['tag']]
-        labels = [f'{r["model_types"].split(";")[0]} {r["native_backend"]}\nt={r["threads"]} block={r["block_size"]}' for r in rows]
-        fig, ax = plt.subplots(figsize=(max(7, len(rows)), 5), constrained_layout=True)
-        speedups = [float(r['native_speedup']) if r.get('native_speedup') and str(r['native_speedup']).strip() else 0.0 for r in rows]
-        ax.bar(range(len(rows)), speedups)
-        ax.set_xticks(range(len(rows)), labels, rotation=35, ha='right')
-        ax.axhline(1, color='black', linewidth=1)
-        ax.set(ylabel='PyG compute / native compute (>1: native faster)', title=workload['tag'])
-        for extension in ('png', 'svg'):
-            fig.savefig(plots / f'{workload["tag"]}-speedup.{extension}', dpi=160)
-        plt.close(fig)
+                if model != kind or workload not in eligible:
+                    continue
+                point = (workload[dimension], float(row['mean_ms']), float(row['stddev_ms']))
+                groups.setdefault(label, []).append(point)
+                if label == 'Native / sequential':
+                    sequential[tag] = float(row['mean_ms'])
+
+            fig, axes = plt.subplots(1, 2, figsize=(15, 5.5), constrained_layout=True)
+            for label, values in sorted(groups.items(), key=lambda item: series_order(item[0])):
+                values.sort(key=lambda value: value[0])
+                color = series_color(label)
+                style = series_style(label)
+                axes[0].errorbar(
+                    [value[0] for value in values], [value[1] for value in values],
+                    yerr=[value[2] for value in values], linewidth=2,
+                    capsize=3, label=label, color=color, **style,
+                )
+                speedup_points = []
+                for value in values:
+                    matching = next(w for w in eligible if w[dimension] == value[0])
+                    if matching['tag'] in sequential and value[1] > 0:
+                        speedup_points.append((value[0], sequential[matching['tag']] / value[1]))
+                if speedup_points:
+                    axes[1].plot(
+                        [value[0] for value in speedup_points],
+                        [value[1] for value in speedup_points],
+                        linewidth=2, label=label, color=color, **style,
+                    )
+
+            axes[0].set_yscale('log')
+            axes[0].set(title='Compute latency', xlabel=dimension, ylabel='Mean milliseconds, log scale')
+            axes[1].axhline(1.0, color='#222222', linestyle='--', linewidth=1)
+            axes[1].set(title='Speedup over native sequential', xlabel=dimension,
+                        ylabel='Sequential time / configuration time')
+            if dimension == 'nodes':
+                axes[0].set_xscale('log')
+                axes[1].set_xscale('log')
+            handles, labels = axes[0].get_legend_handles_labels()
+            fig.legend(handles, labels, loc='outside lower center', ncol=3)
+            fig.suptitle(f'{kind} scaling with {dimension} — one variable changed at a time', fontsize=14)
+            save_figure(fig, f'{kind.lower()}-{dimension}-scaling')
 
 
 def default_cpu_threads():
@@ -254,7 +411,11 @@ def main():
     default_native = 'builddir/gnn.exe' if Path('builddir/gnn.exe').exists() else 'builddir/gnn'
     parser.add_argument('--native', default=default_native, help='Path to compiled native executable')
     parser.add_argument('--output-dir', default='experiment_results', help='Output directory for results and plots')
+    parser.add_argument('--plots-only', action='store_true',
+                        help='Rebuild plots from workloads.json, samples.csv, and comparison.csv in output-dir')
     parser.add_argument('--dataset', choices=['ogbn-arxiv', 'Cora', 'CiteSeer', 'PubMed', 'none'], default='ogbn-arxiv')
+    parser.add_argument('--skip-synthetic', action='store_true',
+                        help='Run only the selected public dataset (invalid with --dataset none)')
     parser.add_argument('--models', nargs='+', choices=['GCN', 'GRAPHSAGE'], default=['GCN', 'GRAPHSAGE'])
     parser.add_argument('--real-hidden', type=int, default=32)
     parser.add_argument('--backend', nargs='+', choices=['sequential', 'parallel', 'cuda'], default=None,
@@ -274,6 +435,8 @@ def main():
     parser.add_argument('--atol', type=float, default=1e-4)
     parser.add_argument('--rtol', type=float, default=1e-4)
     args = parser.parse_args()
+    if args.dataset == 'none' and args.skip_synthetic:
+        parser.error('--skip-synthetic requires a public --dataset')
     if any(value <= 0 for value in args.nodes):
         parser.error('--nodes values must be positive')
     if any(value <= 0 for value in args.widths):
@@ -294,20 +457,32 @@ def main():
         parser.error('--atol and --rtol must be non-negative')
     if args.warmups < 0 or args.repetitions <= 0 or args.repeat_checks < 0:
         parser.error('--warmups/--repeat-checks must be non-negative and --repetitions positive')
+    root = Path(args.output_dir).resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    if args.plots_only:
+        required = [root / name for name in ('workloads.json', 'samples.csv', 'comparison.csv')]
+        missing = [str(path) for path in required if not path.exists()]
+        if missing:
+            parser.error('cannot rebuild plots; missing ' + ', '.join(missing))
+        workloads = json.loads((root / 'workloads.json').read_text(encoding='utf-8'))
+        samples = read_samples(root / 'samples.csv')
+        comparisons = read_samples(root / 'comparison.csv')
+        plot_results(root, workloads, samples, comparisons)
+        print(f'Rebuilt plots from existing results: {root / "plots"}', flush=True)
+        return
     if args.backend is None:
         help_text = subprocess.run([str(Path(args.native).resolve()), '--help'], capture_output=True, text=True).stdout
         modes_line = [l for l in help_text.splitlines() if l.startswith('Modes:') or 'Available modes:' in l]
         available = [b for b in ('sequential', 'parallel', 'cuda') if any(b in l for l in modes_line)]
         args.backend = available if available else ['sequential']
         print(f'Auto-detected backends from {args.native}: {args.backend}', flush=True)
-    root = Path(args.output_dir).resolve()
-    root.mkdir(parents=True, exist_ok=True)
     save_json(root / 'experiment.json', vars(args))
     workloads, samples, comparisons = [], [], []
     if args.dataset != 'none':
         print(f'Downloading {args.dataset} graph/features and generating seeded model weights', flush=True)
         workloads.append(real_workload(args, root))
-    workloads.extend(synthetic_workloads(args, root))
+    if not args.skip_synthetic:
+        workloads.extend(synthetic_workloads(args, root))
     save_json(root / 'workloads.json', workloads)
     checks = 0
     for workload in workloads:

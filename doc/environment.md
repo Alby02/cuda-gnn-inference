@@ -21,7 +21,7 @@ Since MSVC is not supported for this project, you must use MSYS2 on Windows, you
    ```
 6. Set up the Python environment, then configure CUDA explicitly off and build:
    ```bash
-   uv sync
+   uv sync --locked
    meson setup builddir -Dcuda=disabled
    meson compile -C builddir
    ./builddir/gnn.exe --backend sequential
@@ -50,7 +50,7 @@ echo 'export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH' >> ~/.bashr
 source ~/.bashrc
 ```
 
-If you are encountering issues with `nvcc` not being being compatible with your system's GCC version, you can install an older version of GCC (e.g., GCC 15) and set it as the default compiler for `nvcc` in mason by running:
+If `nvcc` is incompatible with your system GCC version, install a supported GCC version and select it as Meson's CUDA host compiler with:
 
 ```bash
 meson setup builddir -Dcuda_ccbindir='/usr/bin/g++-15'
@@ -73,7 +73,7 @@ The dataset converter (`scripts/converter.py`) and synthetic graph generator
 `uv.lock` with:
 
 ```bash
-uv sync
+uv sync --locked
 ```
 
 Run the tools through that managed environment:

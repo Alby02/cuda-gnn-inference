@@ -7,23 +7,16 @@ This document fulfills the requirements for the DOCUMENTATION file regarding the
 ## 1. Main Design Choices
 
 ### 1.1 GraphSAGE Architecture
-The project implements the mean-aggregator variant of GraphSAGE. Unlike GCN's symmetric normalization, GraphSAGE performs a distinct two-step update: first, it computes the mean of incoming neighbor features, and second, it concatenates this aggregated neighborhood vector with the node's previous-layer features before applying a dense linear transformation: $h_v^{(k)} = \sigma(W \cdot [h_v^{(k-1)} \parallel h_{\mathcal{N}(v)}^{(k)}])$. 
+The project implements the mean-aggregator variant of GraphSAGE. Unlike GCN's symmetric normalization, GraphSAGE performs a distinct two-step update: first, it computes the arithmetic mean of incoming non-self neighbor features, and second, it combines this aggregated neighborhood vector with the node's previous-layer features through separate learned projections: $h_v^{(k)} = \sigma(h_v^{(k-1)}W_{self} + h_{\mathcal{N}(v)}^{(k)}W_{neigh} + b)$. Stored scalar edge weights are deliberately ignored by this mean, matching PyTorch Geometric `SAGEConv`; they continue to participate in GCN normalization.
 
 **Selected parallel mappings:** Destination-owned/vertex-centric for OpenMP, and destination/feature 2D mapping for CUDA.
 
 
-### 1.2 GraphSAGE Neighbor Sampling 
+### 1.2 Full-neighborhood inference
 
-This feature introduces an optional, layer-dependent neighbor sampling mechanism into the GraphSAGE CUDA and CPU aggregation pipelines. By limiting the number of neighbors processed per node during aggregation, it significantly reduces computational overhead and memory bandwidth requirements for highly connected (dense) graphs.
-
-
-#### Sampling Heuristic & Logic
-
-* **Layer-Based Decay**: The system dynamically calculates the sample size based on the network depth (layer index) to balance performance and information flow:
-  * **Layer 0**: Maximum of 25 neighbors.
-  * **Deeper Layers**: Sample size decreases linearly (formula: `10 - layer * 2`), with a hard minimum of 5 neighbors.
-* **Deterministic Selection**: To avoid the overhead and branch divergence introduced by pseudo-random number generation , the kernels use a uniform selection strategy based on a deterministic stride: `edge_idx = e * degree / maxSamples`. This ensures an even sampling of neighbors across the node's adjacency list.
-* **Bypass Mechanism**: If a node's total degree is less than or equal to the `maxSamples` threshold, the kernel automatically bypasses the sampling logic and processes all available neighbors.
+The delivered runtime performs exact full-neighborhood inference. Neighbor sampling and mini-batch
+execution are outside the selected project scope, so every non-self incoming neighbor contributes
+to the GraphSAGE arithmetic mean on every backend.
 
 
 

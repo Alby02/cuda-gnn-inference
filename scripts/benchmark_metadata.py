@@ -75,5 +75,5 @@ def run_metadata(args, model_metadata, environment, backend, setting, command):
                 warmups=args.warmups, repetitions=args.repetitions,
                 command=json.dumps(command),
                 memory_policy='workspace capacity only; peak memory unmeasured',
-                timing_policy='layer_execution=GCN_transform_then_aggregate; GraphSAGE_weighted_mean_then_transform; load/setup/upload excluded; '
+                timing_policy='layer_execution=GCN_transform_then_aggregate; GraphSAGE_unweighted_neighbor_mean_then_transform; load/setup/upload excluded; '
                               'end_to_end=input reset+compute+synchronization; final download separate')

@@ -86,7 +86,7 @@ flowchart TD
 | [Environment Setup Instructions](doc/environment.md) | Setup guide for Windows (MSYS2 UCRT64), Linux, WSL, and Google Colab. |
 | [GNN & Graph Knowledge Base](doc/knowledge.md) | Mathematical formulation of GCN/GraphSAGE and sparse graph storage (CSR/CSC). |
 | [GCN Specification](doc/GCN.md) | Summarization of GCN logic, implementation and results. |
-| [GraphSAGE Specification](doc/knowledge.md) | Summarization of GraphSAGE logic, implementation and results. |
+| [GraphSAGE Specification](doc/GraphSAGE.md) | Summarization of GraphSAGE logic, implementation and results. |
 
 
 ---
@@ -99,13 +99,13 @@ flowchart TD
 - **Build System**: [Meson](https://mesonbuild.com/) (>= 0.60) and [Ninja](https://ninja-build.org/).
 - **OpenMP**: For multi-core CPU parallel execution.
 - **CUDA Toolkit** (optional, Linux/WSL/Colab): required only for the CUDA backend (`nvcc`).
-- **Python 3.10–3.13** and [uv](https://docs.astral.sh/uv/): required for dataset, validation, and benchmark scripts. Dependencies are declared in `pyproject.toml`.
+- **Python 3.10–3.13** and [uv](https://docs.astral.sh/uv/): required for dataset, validation, and benchmark scripts. Dependencies are declared in `pyproject.toml`, locked in `uv.lock`, and mirrored in `python_libraries.txt` for Colab's `pip` setup.
 
 ### Quick Start
 
 ```bash
 # 0. Create the Python tooling environment
-uv sync
+uv sync --locked
 
 # 1. Configure the build directory (CUDA is auto-detected)
 meson setup builddir
@@ -227,12 +227,43 @@ export OMP_NUM_THREADS=16
 uv run python scripts/check_edge_cases.py --native ./builddir/gnn
 ```
 
+The checker auto-detects every backend compiled into the executable and tests each one, plus
+PyTorch Geometric, against an independent dense Python reference. The fixtures cover empty
+neighborhoods, an undirected weighted graph, a mixed multi-layer model, and GraphSAGE without
+bias. A machine-readable report is written to `experiment_results/edge-cases/verification.json`.
+Use `--backend sequential parallel` (or include `cuda`) to require an explicit backend set.
+
+Run a compact CPU scaling experiment on MSYS2 UCRT64:
+
+```bash
+uv run python scripts/run_experiments.py \
+  --native ./builddir/gnn.exe --dataset none \
+  --nodes 1000 10000 --widths 32 128 --depths 2 4 --skews 0 1 \
+  --backend sequential parallel --threads 1 2 4 \
+  --warmups 2 --repetitions 5 --repeat-checks 1 \
+  --output-dir experiment_results/cpu-scaling
+```
+
+The runner changes one workload dimension at a time, saves raw samples and comparisons as CSV,
+records workload/configuration metadata as JSON, and emits both PNG and SVG figures. Each
+workload/model gets a latency, throughput, speedup, and numerical-error dashboard. A scaling
+figure is emitted only when that axis contains at least two measured values, so a single workload
+is never presented as a misleading scaling chart. Existing results can be replotted without
+rerunning inference:
+
+```bash
+uv run python scripts/run_experiments.py \
+  --plots-only --output-dir experiment_results/cpu-scaling
+```
+
 ### Google Colab
 
 Open [`Colab/Runner.ipynb`](Colab/Runner.ipynb), select a GPU runtime, and choose **Runtime → Run all**.
 The notebook clones and builds on Colab's local disk, writes persistent results to Google Drive, and
-runs a small synthetic correctness benchmark by default. Public-dataset and million-node runs are
-present but opt-in to avoid unexpectedly consuming a long GPU session.
+runs the edge-case matrix and a genuine multi-point synthetic sweep by default. It streams progress,
+prints verification summaries, and displays the generated dashboards and scaling plots. Cora,
+the larger scaling sweep, and the million-node run are opt-in through `RUN_CORA`, `RUN_SCALING`, and
+`RUN_MILLION_NODES`; leave them disabled until the quick run passes.
 
 
 
@@ -304,7 +335,7 @@ extensions not selected in the baseline project profile (`semantics.md`).
 | T-SEQ-06 | Allocation-free steady-state workspace reuse | `s360540` | Completed |
 | T-SEQ-02 | Sequential GCN normalized aggregation | `s362415` | Completed |
 | T-SEQ-04 (GCN) | Sequential GCN layer execution | `s362415` | Completed |
-| T-SEQ-03 | Sequential GraphSAGE weighted non-self mean | `s296248` | Completed |
+| T-SEQ-03 | Sequential GraphSAGE unweighted non-self mean | `s296248` | Completed |
 | T-SEQ-04 (GraphSAGE) | Sequential GraphSAGE layer execution | `s296248` | Completed |
 | T-VER-03, T-VER-05 | Common comparison and invalid-input test infrastructure | `s360540` | Completed |
 | T-VER-01, T-VER-04/T-VER-06 (GCN) | GCN fixtures and native/framework backend verification | `s362415` | Completed |

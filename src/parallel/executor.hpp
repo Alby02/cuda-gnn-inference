@@ -67,6 +67,8 @@ public:
     if (layer >= 0) {
         maxSamples = (layer == 0) ? 25 : std::max(10 - layer * 2, 5);
     }
+    const std::uint64_t maximumSamples =
+        maxSamples > 0 ? static_cast<std::uint64_t>(maxSamples) : 0;
 
 #pragma omp parallel for schedule(static)
     for (std::uint64_t u = 0; u < num_nodes; ++u) {
@@ -81,7 +83,8 @@ public:
             continue;
         }
 
-        const std::uint64_t limit = (maxSamples > 0 && degree > maxSamples) ? maxSamples : degree;
+        const bool sampling = maximumSamples > 0 && degree > maximumSamples;
+        const std::uint64_t limit = sampling ? maximumSamples : degree;
 
         if (aggType == gnn::layers::GraphSAGEAggregationType::MEAN ||
             aggType == gnn::layers::GraphSAGEAggregationType::SUM) {
@@ -89,7 +92,7 @@ public:
             float total_weight = 0;
 
             for (std::uint64_t e = 0; e < limit; ++e) {
-                const std::uint64_t edge_offset = (maxSamples > 0 && degree > maxSamples) ? (e * degree / maxSamples) : e;
+                const std::uint64_t edge_offset = sampling ? (e * degree / maximumSamples) : e;
                 const std::uint64_t i = start + edge_offset;
 
                 const std::uint64_t v = row_ind[i];
@@ -115,7 +118,7 @@ public:
         } else if (aggType == gnn::layers::GraphSAGEAggregationType::MAX) {
             std::fill_n(out_ptr, feat_dim, std::numeric_limits<float>::lowest());
             for (std::uint64_t e = 0; e < limit; ++e) {
-                const std::uint64_t edge_offset = (maxSamples > 0 && degree > maxSamples) ? (e * degree / maxSamples) : e;
+                const std::uint64_t edge_offset = sampling ? (e * degree / maximumSamples) : e;
                 const std::uint64_t i = start + edge_offset;
 
                 const std::uint64_t v = row_ind[i];

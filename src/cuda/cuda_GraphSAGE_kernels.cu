@@ -19,6 +19,8 @@ __global__ void graphSAGEAggregateKernel(DeviceGraph graph, DeviceMatrix input, 
     const std::size_t featureDim = output.cols();
     const std::size_t total = output.size();
     const bool weighted = graph.hasEdgeWeights();
+    const std::size_t maximumSamples =
+        maxSamples > 0 ? static_cast<std::size_t>(maxSamples) : 0;
 
     for (std::size_t index = first; index < total; index += stride) {
         const std::uint64_t v = static_cast<std::uint64_t>(index / featureDim);
@@ -31,13 +33,11 @@ __global__ void graphSAGEAggregateKernel(DeviceGraph graph, DeviceMatrix input, 
         float maxVal = -CUDART_INF_F;
         std::size_t contributingNeighbors = 0;
 
-        const std::size_t limit =
-            (maxSamples > 0 && neighbors.size() > maxSamples) ? maxSamples : neighbors.size();
+        const bool sampling = maximumSamples > 0 && neighbors.size() > maximumSamples;
+        const std::size_t limit = sampling ? maximumSamples : neighbors.size();
 
         for (std::size_t e = 0; e < limit; ++e) {
-            const std::size_t edge_idx = (maxSamples > 0 && neighbors.size() > maxSamples)
-                                             ? (e * neighbors.size() / maxSamples)
-                                             : e;
+            const std::size_t edge_idx = sampling ? (e * neighbors.size() / maximumSamples) : e;
             const std::uint64_t u = neighbors[edge_idx];
             const float inputValue = input(static_cast<std::size_t>(u), f);
 

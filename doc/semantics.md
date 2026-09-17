@@ -265,29 +265,30 @@ $$
 
 An explicitly stored self-loop is excluded from this neighbor set because the self representation is already handled by the self branch. GraphSAGE does not add an implicit graph self-loop.
 
-Let the total non-self incoming weight be:
+Let the non-self incoming-neighbor count be:
 
 $$
-s_v
-=
-\sum_{u\in\mathcal{N}_{in}^{-}(v)} w_{u,v}.
+d_v^{-}=\left|\mathcal{N}_{in}^{-}(v)\right|.
 $$
 
-The weighted mean neighbor representation is:
+The arithmetic mean neighbor representation is:
 
 $$
 m_v^{(l)}
 =
 \begin{cases}
 \displaystyle
-\frac{1}{s_v}
+\frac{1}{d_v^{-}}
 \sum_{u\in\mathcal{N}_{in}^{-}(v)}
-w_{u,v}h_u^{(l)}, & s_v>0, \\
-\mathbf{0}, & s_v=0.
+h_u^{(l)}, & d_v^{-}>0, \\
+\mathbf{0}, & d_v^{-}=0.
 \end{cases}
 $$
 
-Because stored weights are strictly positive, $s_v=0$ exactly when no non-self incoming neighbor exists. For an unweighted graph, all stored weights are $1$ and this becomes the ordinary arithmetic mean.
+Stored scalar edge weights do not participate in the selected GraphSAGE `MEAN` semantics; this
+matches PyTorch Geometric `SAGEConv`. They remain part of the graph format and are used by GCN
+normalization (and may be used by non-core aggregation modes). Parallel and CUDA GraphSAGE paths
+must therefore produce the same mean for weighted and unweighted copies of the same topology.
 
 The GraphSAGE layer output is:
 
@@ -384,7 +385,7 @@ For GCN, the mapping explicitly records:
 For GraphSAGE, the mapping explicitly records:
 
 - exclusion of stored self-loops from neighbor aggregation;
-- weighted mean over non-self incoming neighbors;
+- unweighted arithmetic mean over non-self incoming neighbors;
 - the zero vector for an empty neighbor set;
 - separate self and neighbor transformations, including any parameter concatenation/transposition required by the framework;
 - bias and activation; and

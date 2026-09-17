@@ -169,7 +169,9 @@ $$ H^{(l+1)} = \sigma_l \left( D^{-1/2} \widehat{A}^T D^{-1/2} H^{(l)}W^{(l)} + 
 GraphSAGE uses a neighbor branch and a separate self branch.
 The GraphSAGE layer output is:
 $$ h_v^{(l+1)} = \sigma_l\left( h_v^{(l)}W_{self}^{(l)} + m_v^{(l)}W_{neigh}^{(l)} + b^{(l)} \right) $$
-Where $m_v^{(l)}$ is the weighted mean neighbor representation excluding self-loops.
+Where $m_v^{(l)}$ is the arithmetic mean of incoming neighbor representations excluding self-loops.
+Scalar edge weights are ignored by the selected GraphSAGE mean, matching PyTorch Geometric
+`SAGEConv`; edge weights remain active in GCN normalization.
 
 ---
 

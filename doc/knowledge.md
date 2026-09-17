@@ -534,7 +534,9 @@ $$
 
 The edge position in **col_ind** or **row_ind** serves as the index into the corresponding scalar weight or feature row.
 
-Scalar edge weights are compatible with both required architectures: they participate in GCN normalization and in the GraphSAGE weighted neighbor mean. Dense edge-feature processing belongs toothersegnn layerse.
+Scalar edge weights participate in GCN normalization. The selected GraphSAGE `MEAN` operator uses
+the arithmetic mean of non-self neighbors and deliberately ignores scalar edge weights, matching
+PyTorch Geometric `SAGEConv`. Dense edge-feature processing belongs to other GNN layers.
 
 ## 12. External-framework comparison
 

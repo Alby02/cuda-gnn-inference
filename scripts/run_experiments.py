@@ -210,6 +210,13 @@ def plot_results(root, workloads, samples, comparisons):
     def model_name(row):
         return row['model_types'].split(';')[0]
 
+    def display_value(value):
+        if value is None or value == '':
+            return 'n/a'
+        if isinstance(value, float):
+            return f'{value:g}'
+        return str(value)
+
     def series_label(row):
         if row['runner'] == 'torch_geometric':
             return ('PyG / CUDA' if row['backend'] == 'cuda'
@@ -336,7 +343,9 @@ def plot_results(root, workloads, samples, comparisons):
             fig.suptitle(
                 f'{kind} — {tag}\n'
                 f'{workload["nodes"]:,} nodes · {workload["stored_edges"]:,} stored edges · '
-                f'width {workload["width"]} · depth {workload["depth"]} · skew {workload["skew"]:g}',
+                f'width {display_value(workload["width"])} · '
+                f'depth {display_value(workload["depth"])} · '
+                f'skew {display_value(workload["skew"])}',
                 fontsize=15,
             )
             save_figure(fig, f'{tag}-{kind.lower()}-dashboard')
